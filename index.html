@@ -1,0 +1,2829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>English Learning App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<style>
+  :root{
+    --bg:#0b1420;
+    --bg-panel:#10202f;
+    --bg-panel-alt:#16293b;
+    --bg-card:#0e1c29;
+    --accent-cyan:#4dd9e8;
+    --accent-amber:#f2a93c;
+    --accent-green:#5cd68a;
+    --accent-red:#ef6f6f;
+    --text-primary:#eaf2f5;
+    --text-muted:#7f97a6;
+    --text-dim:#4f6577;
+    --border:#22394a;
+    --border-soft:#1a2c3a;
+    --radius:10px;
+  }
+  :root.light-theme{
+    --bg:#f4f6f8;
+    --bg-panel:#ffffff;
+    --bg-panel-alt:#eef2f6;
+    --bg-card:#ffffff;
+    --accent-cyan:#0891b2;
+    --accent-amber:#b45309;
+    --accent-green:#15803d;
+    --accent-red:#dc2626;
+    --text-primary:#182430;
+    --text-muted:#5b6b7a;
+    --text-dim:#8b98a5;
+    --border:#d7dee5;
+    --border-soft:#e5eaef;
+  }
+  .toggle-switch{position:relative;display:inline-block;width:44px;height:24px;flex:0 0 auto;}
+  .toggle-switch input{opacity:0;width:0;height:0;}
+  .toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);
+    border-radius:24px;transition:.15s;}
+  .toggle-slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;
+    background:#fff;border-radius:50%;transition:.15s;}
+  .toggle-switch input:checked + .toggle-slider{background:var(--accent-cyan);}
+  .toggle-switch input:checked + .toggle-slider::before{transform:translateX(20px);}
+  *{box-sizing:border-box;}
+  html{background:var(--bg);}
+  body{margin:0;padding:0;background:var(--bg);color:var(--text-primary);
+    font-family:'IBM Plex Sans','IBM Plex Sans JP',sans-serif;min-height:100vh;}
+  .app{max-width:640px;margin:0 auto;padding:18px 16px 60px;}
+
+  /* header */
+  .hdr{display:flex;align-items:center;justify-content:space-between;
+    border:1px solid var(--border);border-radius:var(--radius);
+    background:linear-gradient(160deg,var(--bg-panel),var(--bg-panel-alt));
+    padding:9px 14px;margin-bottom:12px;position:relative;overflow:hidden;}
+  .hdr::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
+    background:repeating-linear-gradient(90deg,var(--accent-cyan) 0 14px,transparent 14px 22px);
+    opacity:.55;}
+  .hdr-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;
+    color:var(--accent-cyan);text-transform:uppercase;margin:0 0 4px;}
+  .hdr-sub{font-size:14.5px;font-weight:600;margin:0;color:var(--text-primary);}
+  .hdr-meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-muted);
+    text-align:right;line-height:1.4;white-space:nowrap;}
+  .hdr-meta b{color:var(--accent-amber);font-size:12.5px;}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{flex:0 0 auto;padding:10px 14px;text-align:center;border-radius:8px;border:1px solid var(--border);
+    background:var(--bg-card);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;transition:.15s;white-space:nowrap;}
+  .tab.active{background:var(--accent-cyan);color:#06141c;border-color:var(--accent-cyan);}
+  .tab:not(.active):hover{border-color:var(--accent-cyan);color:var(--text-primary);}
+
+  /* pager: horizontal-swipe pages, also clickable via tabs (PC-friendly) */
+  .tabs-wrap{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+  .pager-wrap{position:relative;flex:1;min-width:0;}
+  .pager{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;scroll-behavior:smooth;}
+  .pager::-webkit-scrollbar{display:none;}
+  .page{flex:0 0 100%;min-width:100%;scroll-snap-align:start;}
+  .pager-nav{display:none;flex:0 0 auto;width:30px;height:30px;
+    border-radius:50%;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);
+    align-items:center;justify-content:center;cursor:pointer;font-size:15px;}
+  .pager-nav:hover{border-color:var(--accent-cyan);color:var(--accent-cyan);}
+  @media (hover:hover) and (pointer:fine){
+    .pager-nav{display:flex;}
+  }
+  .empty-page{border:1px dashed var(--border);border-radius:var(--radius);padding:36px 16px;text-align:center;
+    color:var(--text-dim);font-size:13px;line-height:1.8;}
+  .undo-toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:50;
+    background:var(--bg-panel);border:1px solid var(--accent-cyan);border-radius:10px;
+    padding:10px 10px 10px 16px;display:flex;align-items:center;gap:14px;
+    box-shadow:0 4px 24px rgba(0,0,0,.45);font-size:13px;color:var(--text-primary);max-width:92vw;}
+  .undo-toast button{background:var(--accent-cyan);color:#06141c;border:none;border-radius:7px;
+    padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'IBM Plex Mono',monospace;
+    white-space:nowrap;}
+  .empty-page b{color:var(--text-muted);display:block;margin-bottom:6px;font-size:14px;}
+
+  /* sub-tabs within the phrase learning page */
+  .subtabs{display:flex;gap:6px;margin-bottom:14px;}
+  .subtab{flex:1;padding:8px 6px;text-align:center;border-radius:7px;border:1px solid var(--border);
+    background:transparent;color:var(--text-muted);font-size:12.5px;font-weight:600;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;transition:.15s;}
+  .subtab.active{background:var(--bg-card);color:var(--accent-cyan);border-color:var(--accent-cyan);}
+  .subtab:not(.active):hover{color:var(--text-primary);}
+  .subpanel{display:none;}
+  .subpanel.active{display:block;}
+  .link-card{cursor:default;}
+  .link-meta{display:flex;align-items:center;gap:8px;}
+  .link-timer{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--accent-cyan);}
+  .link-goal{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);}
+  .chip.toggle-on{background:var(--accent-green);color:#06210f;border-color:var(--accent-green);}
+
+  /* drag-to-reorder */
+  .drag-handle{cursor:grab;font-size:16px;color:var(--text-dim);padding:2px 8px 2px 0;line-height:1;user-select:none;}
+  .sortable-ghost{opacity:.35;}
+  .sortable-chosen{border-color:var(--accent-cyan) !important;}
+
+  /* compact track rows for the player playlist */
+  .track-row{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;
+    border:1px solid var(--border);border-radius:8px;background:var(--bg-card);padding:7px 10px;
+    margin-bottom:5px;cursor:pointer;}
+  .track-row::before{content:"";position:absolute;left:0;top:5px;bottom:5px;width:3px;border-radius:2px;
+    background:var(--accent-cyan);opacity:0;}
+  .track-row.now-playing{border-color:var(--accent-cyan);}
+  .track-row.now-playing::before{opacity:1;}
+  .track-row .track-name{font-size:12px;color:var(--text-primary);flex:1;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;padding-left:6px;}
+  .track-row.now-playing .track-name{color:var(--accent-cyan);font-weight:600;}
+  .track-remove-btn{border:none;background:transparent;color:var(--text-dim);font-size:13px;
+    padding:3px 7px;cursor:pointer;line-height:1;flex:0 0 auto;}
+  .track-remove-btn:hover{color:var(--accent-red);}
+
+  /* generate */
+  .situation-box{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-panel);
+    padding:14px;margin-bottom:14px;}
+  .situation-box label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent-cyan);
+    letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:8px;}
+  .situation-box textarea{width:100%;background:var(--bg-card);border:1px solid var(--border);
+    border-radius:8px;color:var(--text-primary);padding:10px 12px;font-size:14px;font-family:inherit;
+    resize:vertical;min-height:52px;}
+  .situation-box textarea:focus{outline:none;border-color:var(--accent-cyan);}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .chip{font-size:12px;padding:5px 11px;border-radius:20px;border:1px solid var(--border);
+    background:var(--bg-card);color:var(--text-muted);cursor:pointer;transition:.15s;}
+  .chip:hover{border-color:var(--accent-amber);color:var(--accent-amber);}
+  .cat-chip{font-weight:600;}
+  .cat-chip.active{background:var(--accent-amber);color:#241a06;border-color:var(--accent-amber);}
+  .item-chip{border-color:var(--border-soft);}
+  .item-chip:hover{border-color:var(--accent-cyan);color:var(--accent-cyan);}
+  .cat-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);
+    letter-spacing:.1em;text-transform:uppercase;margin-top:12px;display:block;}
+  .btn-row{display:flex;gap:8px;margin-top:12px;}
+  .btn-row.add-row{margin-bottom:12px;}
+  .btn{border:none;border-radius:8px;padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;transition:.15s;}
+  .btn-primary{background:var(--accent-cyan);color:#06141c;flex:1;}
+  .btn-primary:hover{background:#6ee5f0;}
+  .btn-primary:disabled{opacity:.45;cursor:default;}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-muted);}
+  .btn-ghost:hover{border-color:var(--accent-amber);color:var(--accent-amber);}
+  .btn-ghost:disabled{opacity:.35;cursor:default;}
+  .count-row{display:flex;gap:6px;margin-top:12px;}
+  .btn-count{flex:1;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);
+    padding:10px 4px;font-size:12.5px;border-radius:8px;font-family:'IBM Plex Mono',monospace;
+    font-weight:600;cursor:pointer;text-align:center;transition:.15s;white-space:nowrap;}
+  .btn-count:hover{border-color:var(--accent-cyan);color:var(--accent-cyan);}
+  .btn-count:disabled{opacity:.45;cursor:default;}
+  .btn-count.selected{background:var(--accent-cyan);color:#06141c;border-color:var(--accent-cyan);}
+  .practice-q{font-size:15.5px;font-weight:600;line-height:1.55;margin-bottom:14px;}
+  .practice-ans-en{font-size:15px;font-weight:600;margin-bottom:4px;line-height:1.45;}
+  .practice-ans-jp{font-size:13px;color:var(--text-muted);margin-bottom:6px;}
+  .practice-ans-note{font-size:12px;color:var(--text-dim);font-style:italic;margin-bottom:10px;line-height:1.5;}
+  .chip.selected{background:var(--accent-cyan);color:#06141c;border-color:var(--accent-cyan);}
+  .convo-bubble{margin-bottom:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+    background:var(--bg-card);}
+  .convo-bubble.user{margin-left:24px;background:var(--bg-panel-alt);}
+  .convo-role{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;margin-bottom:4px;}
+  .convo-bubble.ai .convo-role{color:var(--accent-cyan);}
+  .convo-bubble.user .convo-role{color:var(--accent-amber);}
+  .convo-text{font-size:13.5px;line-height:1.55;}
+  #playerControls .btn-count{padding:6px 2px;font-size:11px;}
+  #playerControls .count-row{gap:4px;}
+  #playerControls .btn-count.active{background:var(--accent-green);color:#06210f;border-color:var(--accent-green);}
+  #playerControls .btn-count.speed-active{background:var(--accent-cyan);color:#06141c;border-color:var(--accent-cyan);}
+
+  .status-line{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-muted);
+    margin:10px 2px;min-height:16px;}
+  .status-line.err{color:var(--accent-red);}
+
+  /* today log */
+  .today-box{margin-top:18px;}
+  .today-hdr{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-muted);
+    letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;}
+
+  /* card */
+  .card{position:relative;border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--bg-card);padding:10px 12px 9px;margin-bottom:7px;}
+  .card::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;
+    background:var(--accent-cyan);}
+  .card.mastered::before{background:var(--accent-green);}
+  .card.reviewing::before{background:var(--accent-amber);}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;
+    padding-left:8px;}
+  .card-serial{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);}
+  .stamp{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;padding:2px 7px;
+    border-radius:4px;border:1px solid currentColor;text-transform:uppercase;}
+  .stamp.new{color:var(--accent-cyan);}
+  .stamp.reviewing{color:var(--accent-amber);}
+  .stamp.mastered{color:var(--accent-green);}
+  .card{cursor:pointer;}
+  .card-en{font-size:15.5px;font-weight:600;padding-left:8px;margin-bottom:2px;line-height:1.4;}
+  .card-jp{font-size:13px;color:var(--text-muted);padding-left:8px;margin-bottom:6px;display:none;}
+  .card.revealed .card-jp{display:block;}
+  .jp-hint{font-size:11px;color:var(--text-dim);padding-left:8px;margin-bottom:0;}
+  .card.revealed .jp-hint{display:none;}
+  .card-note{font-size:12px;color:var(--text-dim);padding-left:8px;margin-bottom:10px;font-style:italic;
+    line-height:1.5;display:none;}
+  .card.revealed .card-note{display:block;}
+  .card-actions{display:flex;gap:6px;padding-left:8px;flex-wrap:wrap;cursor:default;}
+  .card-top-right{display:flex;align-items:center;gap:4px;flex:0 0 auto;cursor:default;}
+  .mini-icon-btn{border:1px solid var(--border);background:transparent;color:var(--text-muted);
+    border-radius:7px;width:31px;height:29px;font-size:14px;display:inline-flex;align-items:center;
+    justify-content:center;cursor:pointer;padding:0;flex:0 0 auto;}
+  .mini-icon-btn:hover{border-color:var(--accent-cyan);color:var(--accent-cyan);}
+  .mini-icon-btn.del:hover{border-color:var(--accent-red);color:var(--accent-red);}
+  .mini-icon-btn.active-good{background:var(--accent-green);color:#06210f;border-color:var(--accent-green);}
+  .mini-icon-btn.active-warn{background:var(--accent-amber);color:#241a06;border-color:var(--accent-amber);}
+  .history-card{padding:8px 12px;margin-bottom:4px;}
+  .history-card .card-top{margin-bottom:0;}
+  .history-card .card-en{font-size:13px;margin-bottom:0;padding-left:8px;line-height:1.5;}
+  .history-card .card-jp{margin-top:4px;}
+  .history-card .card-actions{display:none;margin-top:8px;}
+  .history-card.revealed .card-actions{display:flex;}
+  .icon-btn.good.active{background:var(--accent-green);color:#06210f;border-color:var(--accent-green);}
+  .icon-btn.warn.active{background:var(--accent-amber);color:#241a06;border-color:var(--accent-amber);}
+  .icon-btn.reg-done{opacity:.5;cursor:default;}
+
+  /* scripts */
+  .script-title{font-size:15.5px;font-weight:600;padding-left:8px;margin-bottom:2px;line-height:1.4;}
+  .script-body{display:none;white-space:pre-wrap;font-size:13px;line-height:1.65;padding-left:8px;
+    margin:6px 0 8px;color:var(--text-primary);}
+  .card.revealed .script-body{display:block;}
+  .script-memo{display:none;font-size:12px;color:var(--text-muted);padding-left:8px;font-style:italic;
+    margin-bottom:8px;line-height:1.5;}
+  .card.revealed .script-memo{display:block;}
+  .script-form textarea{margin-bottom:4px;}
+  .script-form label{margin-top:10px;}
+  .script-form label:first-child{margin-top:0;}
+  .icon-btn{border:1px solid var(--border);background:transparent;color:var(--text-muted);
+    border-radius:7px;padding:8px 13px;font-size:15.5px;cursor:pointer;display:inline-flex;
+    align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;}
+  .icon-btn:hover{border-color:var(--accent-cyan);color:var(--accent-cyan);}
+  .icon-btn.good:hover{border-color:var(--accent-green);color:var(--accent-green);}
+  .icon-btn.warn:hover{border-color:var(--accent-amber);color:var(--accent-amber);}
+  .icon-btn.del:hover{border-color:var(--accent-red);color:var(--accent-red);}
+
+  .empty{border:1px dashed var(--border);border-radius:var(--radius);padding:28px 16px;text-align:center;
+    color:var(--text-dim);font-size:13px;line-height:1.7;}
+  .empty b{color:var(--text-muted);}
+
+  .date-hdr{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent-cyan);
+    letter-spacing:.1em;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft);
+    display:flex;justify-content:space-between;}
+
+  .tts-note{font-size:11px;color:var(--text-dim);margin-top:10px;line-height:1.6;}
+  ::selection{background:var(--accent-cyan);color:#06141c;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="undo-toast" id="undoToast" style="display:none;">
+    <span id="undoToastText">削除しました</span>
+    <button id="undoToastBtn">元に戻す</button>
+  </div>
+  <div class="undo-toast" id="errorBanner" style="display:none;border-color:var(--accent-red);"></div>
+
+  <div class="hdr">
+    <p class="hdr-sub">English Learning App</p>
+    <div class="hdr-meta" id="hdrClock">----/--/--(---) --:--:--</div>
+  </div>
+
+  <div class="tabs-wrap">
+    <div class="pager-nav" id="pagerPrev">‹</div>
+    <div class="tabs" id="tabsRow">
+      <div class="tab active" data-tab="phrases">フレーズ</div>
+      <div class="tab" data-tab="scripts">台本</div>
+      <div class="tab" data-tab="player">プレイヤー</div>
+      <div class="tab" data-tab="links">リンク</div>
+      <div class="tab" data-tab="settings">設定</div>
+    </div>
+    <div class="pager-nav" id="pagerNext">›</div>
+  </div>
+
+  <div class="pager-wrap">
+    <div class="pager" id="pager">
+
+      <!-- PHRASES (生成 / 復習 / 履歴) -->
+      <div class="page" id="page-phrases">
+        <div class="subtabs" id="subTabsRow">
+          <div class="subtab active" data-subtab="gen">生成</div>
+          <div class="subtab" data-subtab="review">復習</div>
+          <div class="subtab" data-subtab="history">履歴</div>
+          <div class="subtab" data-subtab="practice">練習</div>
+        </div>
+
+        <div class="subpanel active" id="subpanel-gen">
+          <div class="situation-box">
+            <label>Situation / シチュエーション</label>
+            <textarea id="situationInput" placeholder="例: 納期の遅延を顧客に説明し、代替案を提示する (⌘/Ctrl+Enterで5問生成)"></textarea>
+            <span class="cat-label" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>大分類を選択</span>
+              <button class="mini-icon-btn" id="catEditToggleBtn" title="カテゴリを編集">✎</button>
+            </span>
+            <div class="chips" id="catChips"></div>
+            <div class="chips" id="itemChips"></div>
+
+            <div id="catEditPanel" style="display:none;margin-top:8px;">
+              <div class="date-hdr" style="margin-top:8px;"><span>大分類の編集</span><span></span></div>
+              <div id="catEditList"></div>
+              <div class="count-row">
+                <input type="text" id="catNewNameInput" placeholder="新しい大分類名"
+                  style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+                  color:var(--text-primary);padding:8px 10px;font-size:13px;font-family:inherit;">
+                <button class="btn-count" id="catAddBtn">＋ 追加</button>
+              </div>
+
+              <div class="date-hdr" style="margin-top:16px;"><span id="itemEditHeader">項目の編集(大分類を選択)</span><span></span></div>
+              <div id="itemEditList"></div>
+              <div class="count-row">
+                <input type="text" id="itemNewNameInput" placeholder="新しい項目名"
+                  style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+                  color:var(--text-primary);padding:8px 10px;font-size:13px;font-family:inherit;">
+                <button class="btn-count" id="itemAddBtn">＋ 追加</button>
+              </div>
+            </div>
+
+            <div class="count-row" id="countRow">
+              <button class="btn-count" data-count="3">3個生成</button>
+              <button class="btn-count" data-count="5">5個生成</button>
+              <button class="btn-count" data-count="10">10個生成</button>
+            </div>
+            <div class="status-line" id="genStatus"></div>
+          </div>
+
+          <div class="btn-row add-row">
+            <button class="btn btn-ghost" id="manualPhraseToggleBtn">＋ 自分でフレーズを追加</button>
+          </div>
+          <div class="situation-box script-form" id="manualPhraseForm" style="display:none;">
+            <label>英語フレーズ</label>
+            <textarea id="manualPhraseEnInput" style="min-height:52px;" placeholder="I have a reservation under the name..."></textarea>
+            <label>日本語訳(任意)</label>
+            <textarea id="manualPhraseJpInput" style="min-height:44px;" placeholder="予約の名前を伝える"></textarea>
+            <label>メモ(任意)</label>
+            <textarea id="manualPhraseNoteInput" style="min-height:44px;" placeholder="使い方や注意点など"></textarea>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="manualPhraseSaveBtn">保存</button>
+              <button class="btn btn-ghost" id="manualPhraseCancelBtn">キャンセル</button>
+            </div>
+            <div class="status-line" id="manualPhraseStatus"></div>
+          </div>
+
+          <div id="genResults"></div>
+
+          <div class="today-box">
+            <div class="today-hdr"><span>今日学習したフレーズ</span><span id="todayCount">0件</span></div>
+            <div id="todayList"></div>
+          </div>
+        </div>
+
+        <div class="subpanel" id="subpanel-review">
+          <div class="today-hdr"><span>会話ログ</span><span id="convoLogsCount">0件</span></div>
+          <div id="convoLogsList" style="margin-bottom:20px;"></div>
+          <div id="reviewList"></div>
+        </div>
+
+        <div class="subpanel" id="subpanel-history">
+          <div id="historyList"></div>
+        </div>
+
+        <div class="subpanel" id="subpanel-practice">
+          <div class="chips" style="margin-bottom:12px;">
+            <span class="chip practice-mode-chip selected" data-mode="quiz">一問一答</span>
+            <span class="chip practice-mode-chip" data-mode="conversation">会話練習</span>
+          </div>
+
+          <!-- QUIZ MODE -->
+          <div id="practiceQuizMode">
+            <div class="situation-box">
+              <label>練習するフレーズ数</label>
+              <div class="count-row" id="practiceCountRow">
+                <button class="btn-count" data-count="3">3問</button>
+                <button class="btn-count selected" data-count="5">5問</button>
+                <button class="btn-count" data-count="10">10問</button>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary" id="practiceStartBtn">練習を開始</button>
+              </div>
+              <div class="status-line" id="practiceStatus"></div>
+            </div>
+
+            <div id="practiceEmpty" class="empty" style="display:none;">登録済みのフレーズがありません。まず「生成」タブでフレーズを作り、「復習に登録」してください。</div>
+
+            <div id="practiceSession" style="display:none;">
+              <div class="today-hdr"><span>練習中</span><span id="practiceProgress">1/5</span></div>
+              <div class="card" style="cursor:default;">
+                <div class="practice-q" id="practiceQuestionText">-</div>
+                <div class="card-actions">
+                  <button class="icon-btn" id="practiceReplayBtn">🔊 もう一度再生</button>
+                  <button class="icon-btn" id="practiceRevealBtn">👁 回答を見る</button>
+                </div>
+                <div id="practiceAnswerBox" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);">
+                  <div class="practice-ans-en" id="practiceAnswerEn"></div>
+                  <div class="practice-ans-jp" id="practiceAnswerJp"></div>
+                  <div class="practice-ans-note" id="practiceAnswerNote"></div>
+                  <div class="card-actions">
+                    <button class="icon-btn good" id="practiceGoodBtn">✓ できた</button>
+                    <button class="icon-btn warn" id="practiceBadBtn">✕ できなかった</button>
+                  </div>
+                </div>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-ghost" id="practiceNextBtn">次へ ›</button>
+              </div>
+            </div>
+
+            <div id="practiceComplete" style="display:none;">
+              <div class="empty"><b>練習が完了しました 🎉</b><br>「練習を開始」でまた新しい問題に挑戦できます。</div>
+            </div>
+          </div>
+
+          <!-- CONVERSATION MODE -->
+          <div id="practiceConvoMode" style="display:none;">
+            <div class="situation-box">
+              <label>Situation / シチュエーション</label>
+              <textarea id="convoSituationInput" placeholder="例: 価格交渉で値引きを求められる場面 (⌘/Ctrl+Enterで開始)"></textarea>
+              <span class="cat-label">大分類を選択</span>
+              <div class="chips" id="convoCatChips"></div>
+              <div class="chips" id="convoItemChips"></div>
+              <span class="cat-label">話し方</span>
+              <div class="chips">
+                <span class="chip convo-listen-mode selected" data-listen="manual">話すボタン方式</span>
+                <span class="chip convo-listen-mode" data-listen="auto">常時会話(自動)</span>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary" id="convoStartBtn">会話を開始</button>
+              </div>
+              <div class="status-line" id="convoStatus"></div>
+            </div>
+
+            <div id="convoSession" style="display:none;">
+              <div id="convoTranscript" style="max-height:360px;overflow-y:auto;margin-bottom:10px;"></div>
+              <div class="status-line" id="convoLiveText"></div>
+
+              <div id="convoMicManualWrap">
+                <div class="btn-row">
+                  <button class="btn btn-primary" id="convoMicBtn">🎤 話す</button>
+                </div>
+              </div>
+              <div id="convoMicAutoWrap" style="display:none;">
+                <div class="status-line" id="convoAutoStatus">🎤 自動で聞いています…</div>
+                <div class="btn-row">
+                  <button class="btn btn-ghost" id="convoAutoPauseBtn">⏸ 一時停止</button>
+                </div>
+              </div>
+
+              <div class="situation-box">
+                <label>音声が使えない場合はここに入力</label>
+                <textarea id="convoTypeInput" style="min-height:56px;" placeholder="英語で入力して送信 (⌘/Ctrl+Enterで送信)"></textarea>
+                <div class="btn-row">
+                  <button class="btn btn-ghost" id="convoSendTypedBtn">送信</button>
+                </div>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn btn-ghost" id="convoEndBtn">会話を終了してフィードバックをもらう</button>
+              </div>
+            </div>
+
+            <div id="convoFeedback" style="display:none;">
+              <div class="today-hdr"><span>フィードバック</span><span></span></div>
+              <div class="card" id="convoFeedbackCard" style="cursor:default;"></div>
+              <div class="btn-row">
+                <button class="btn btn-ghost" id="convoRestartBtn">もう一度会話する</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCRIPTS -->
+      <div class="page" id="page-scripts">
+        <div class="btn-row add-row">
+          <button class="btn btn-primary" id="scriptAddToggleBtn">＋ 台本を追加</button>
+          <button class="btn btn-ghost" id="scriptReorderToggleBtn">並べ替え</button>
+        </div>
+        <div class="situation-box script-form" id="scriptForm" style="display:none;">
+          <label>タイトル</label>
+          <textarea id="scriptTitleInput" style="min-height:36px;" placeholder="例: 価格交渉オープニング"></textarea>
+          <label>本文</label>
+          <textarea id="scriptBodyInput" style="min-height:120px;" placeholder="英語台本を貼り付け・入力"></textarea>
+          <label>メモ(任意)</label>
+          <textarea id="scriptMemoInput" style="min-height:52px;" placeholder="使うタイミングや注意点など (⌘/Ctrl+Enterで保存)"></textarea>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="scriptSaveBtn">保存</button>
+            <button class="btn btn-ghost" id="scriptCancelBtn">キャンセル</button>
+          </div>
+          <div class="status-line" id="scriptStatus"></div>
+        </div>
+        <div id="scriptsList"></div>
+      </div>
+
+      <!-- PLAYER -->
+      <div class="page" id="page-player">
+        <label for="audioFileInput" class="card" style="display:flex;align-items:center;padding:14px;margin-bottom:14px;">
+          <span class="script-title" style="margin:0;">📂 音声・動画ファイルを読み込む(MP3・MP4など)</span>
+        </label>
+        <input type="file" id="audioFileInput" accept="audio/*,video/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,.mp4,.mov" multiple style="display:none;">
+
+        <div id="playlistBox"></div>
+
+        <div class="situation-box" id="playerControls">
+          <div class="script-title" id="nowPlayingTitle" style="display:none;"></div>
+          <input type="range" id="seekBar" min="0" max="100" value="0" step="0.1" style="width:100%;margin:0 0 10px;">
+          <div class="status-line" id="timeDisplay" style="margin:0 0 4px;">00:00 / 00:00</div>
+          <div class="status-line" id="playerStatus" style="margin:0 0 10px;"></div>
+
+          <div class="count-row">
+            <button class="btn-count" id="btnPrevTrack">⏮</button>
+            <button class="btn-count" id="btnBack5">-5s</button>
+            <button class="btn-count" id="btnPlayPause">▶</button>
+            <button class="btn-count" id="btnFwd5">+5s</button>
+            <button class="btn-count" id="btnNextTrack">⏭</button>
+          </div>
+
+          <span class="cat-label">再生速度</span>
+          <div class="count-row" id="speedPresetRow">
+            <button class="btn-count" data-speed="0.8">0.80x</button>
+            <button class="btn-count" data-speed="1.0">1.00x</button>
+            <button class="btn-count" data-speed="1.2">1.20x</button>
+          </div>
+          <div class="count-row" style="margin-top:6px;">
+            <button class="btn-count" id="speedDown">－0.01</button>
+            <span class="icon-btn" id="speedDisplay" style="flex:1;justify-content:center;cursor:default;">1.00x</span>
+            <button class="btn-count" id="speedUp">＋0.01</button>
+          </div>
+          <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.01" value="1.0" style="width:100%;margin-top:8px;">
+
+          <span class="cat-label">区間リピート(シャドーイング用)</span>
+          <div class="count-row">
+            <button class="btn-count" id="setPointA">A</button>
+            <button class="btn-count" id="setPointB">B</button>
+            <button class="btn-count" id="clearAB">✕</button>
+            <button class="btn-count" id="toggleSectionRepeat">区間🔁</button>
+            <button class="btn-count" id="toggleSingleRepeat">1曲🔁</button>
+          </div>
+          <div class="status-line" id="abStatus">A: -- / B: --</div>
+        </div>
+
+        <div class="situation-box">
+          <label>シャドーイング用テキスト(貼り付け)</label>
+          <textarea id="playerNotesInput" style="min-height:120px;" placeholder="スクリプトやフレーズを貼り付け"></textarea>
+        </div>
+      </div>
+
+      <!-- LINKS -->
+      <div class="page" id="page-links">
+        <div class="today-box" style="margin-top:0;">
+          <div class="today-hdr"><span>本日の学習時間</span><span id="linkTodayTime">0分</span></div>
+        </div>
+
+        <div class="btn-row add-row">
+          <button class="btn btn-primary" id="linkAddToggleBtn">＋ リンクを追加</button>
+          <button class="btn btn-ghost" id="linkReorderToggleBtn">並べ替え</button>
+        </div>
+        <div class="situation-box script-form" id="linkForm" style="display:none;">
+          <label>タイトル</label>
+          <textarea id="linkTitleInput" style="min-height:36px;" placeholder="例: 英単語アプリ"></textarea>
+          <label>リンク(任意)</label>
+          <textarea id="linkUrlInput" style="min-height:36px;" placeholder="https://..."></textarea>
+          <label>目標時間(分・任意)</label>
+          <input type="number" id="linkGoalInput" min="0" step="1" placeholder="例: 30 (⌘/Ctrl+Enterで保存)"
+            style="width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+            color:var(--text-primary);padding:10px 12px;font-size:14px;font-family:inherit;">
+          <div class="btn-row">
+            <button class="btn btn-primary" id="linkSaveBtn">保存</button>
+            <button class="btn btn-ghost" id="linkCancelBtn">キャンセル</button>
+          </div>
+          <div class="status-line" id="linkStatus"></div>
+        </div>
+        <div id="linksList"></div>
+
+        <div class="date-hdr" style="margin-top:22px;"><span>学習時間の履歴</span><span></span></div>
+        <div id="studyTimeHistory"></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="situation-box">
+          <label>表示</label>
+          <div class="card" style="cursor:default;margin-top:8px;">
+            <div class="card-top" style="margin-bottom:0;">
+              <span class="script-title" style="margin:0;">ダークモード</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="darkModeToggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="situation-box">
+          <label>読み上げ音声</label>
+          <select id="voiceSelect" style="width:100%;background:var(--bg-card);border:1px solid var(--border);
+            border-radius:8px;color:var(--text-primary);padding:10px 12px;font-size:13px;font-family:inherit;">
+            <option value="">(自動選択)</option>
+          </select>
+
+          <span class="cat-label">速度: <span id="voiceRateVal">0.92</span></span>
+          <input type="range" id="voiceRateInput" min="0.5" max="1.5" step="0.01" value="0.92" style="width:100%;">
+
+          <span class="cat-label">ピッチ: <span id="voicePitchVal">1.00</span></span>
+          <input type="range" id="voicePitchInput" min="0.5" max="2.0" step="0.01" value="1.00" style="width:100%;">
+
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="voiceTestBtn">🔊 テスト再生</button>
+          </div>
+          <div class="status-line" id="voiceStatus">利用可能な音声はブラウザ・OSごとに異なります。より自然な音声が欲しい場合は、端末側で高品質な音声を追加すると選択肢が増えます。</div>
+        </div>
+
+        <div class="situation-box" id="apiKeySection" style="display:none;">
+          <label>Anthropic APIキー</label>
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-..."
+            style="width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+            color:var(--text-primary);padding:10px 12px;font-size:13px;font-family:inherit;">
+          <div class="status-line">Claudeの会話画面の外(このページを単体で開いた状態)でAI機能(フレーズ生成・練習・会話練習・フィードバック)を使うために必要です。キーはこの端末のブラウザ内にのみ保存され、外部には送信されません。</div>
+        </div>
+
+        <div class="situation-box">
+          <label>データの共有(スマホ・PC間など)</label>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="exportDataBtn">⬇ エクスポート</button>
+            <button class="btn btn-ghost" id="importDataBtn">⬆ インポート</button>
+          </div>
+          <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+          <div class="status-line" id="dataSyncStatus">自動で同期はされません。一方の端末で「エクスポート」してファイルを保存し、AirDropやメール、クラウドストレージなどでもう一方の端末に送り、そちらで「インポート」してください。</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------- environment shim ----------
+  // Inside Claude's artifact preview, window.storage and authenticated access to
+  // api.anthropic.com are provided automatically. Outside that environment (e.g. this
+  // file hosted standalone on GitHub Pages), neither exists, so we provide a
+  // localStorage-backed replacement for window.storage and require the user to supply
+  // their own Anthropic API key for the AI features.
+  const IS_CLAUDE_ENV = !!window.storage;
+  if(!window.storage){
+    window.storage = {
+      async get(key, shared){
+        const raw = localStorage.getItem('el_' + key);
+        if(raw === null) throw new Error('key not found: ' + key);
+        return { key, value: raw, shared: !!shared };
+      },
+      async set(key, value, shared){
+        localStorage.setItem('el_' + key, value);
+        return { key, value, shared: !!shared };
+      },
+      async delete(key, shared){
+        localStorage.removeItem('el_' + key);
+        return { key, deleted: true, shared: !!shared };
+      },
+      async list(prefix, shared){
+        const p = 'el_' + (prefix || '');
+        const keys = Object.keys(localStorage).filter(k=>k.startsWith(p)).map(k=>k.slice(3));
+        return { keys, prefix, shared: !!shared };
+      }
+    };
+  }
+
+  // ---------- global error visibility ----------
+  // Any silent failure (network error, storage failure, unexpected exception) becomes
+  // visible instead of just disappearing, so problems can actually be diagnosed.
+  let errorBannerTimer = null;
+  function showErrorBanner(msg){
+    const el = document.getElementById('errorBanner');
+    if(!el) return;
+    el.textContent = '⚠ ' + msg;
+    el.style.display = 'flex';
+    clearTimeout(errorBannerTimer);
+    errorBannerTimer = setTimeout(()=>{ el.style.display = 'none'; }, 8000);
+  }
+  window.addEventListener('error', (e)=>{
+    showErrorBanner('予期しないエラーが発生しました: ' + (e.message || e.error || '詳細不明'));
+  });
+  window.addEventListener('unhandledrejection', (e)=>{
+    const reason = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+    showErrorBanner('予期しないエラーが発生しました: ' + reason);
+  });
+  function notifySaveError(context){
+    showErrorBanner(`${context}の保存に失敗しました。データが消えている場合があります。ページを再読み込みして確認してください。`);
+  }
+
+  const DEFAULT_CATEGORIES = [
+    {name:'商談・仕事', items:['価格交渉','納期調整の相談','技術仕様の説明(wafer handling system)',
+      'クレーム対応','見積り送付のメール','契約条件のすり合わせ','初回挨拶・自己紹介',
+      '会議のファシリテーション','電話・オンライン会議','工場見学の案内']},
+    {name:'出張・空港', items:['空港でのチェックイン','手荷物預け・受け取り','入国審査','保安検査',
+      '乗り継ぎの確認','フライト遅延・欠航対応']},
+    {name:'機内', items:['機内での注文・リクエスト','隣の乗客との会話','体調不良を伝える',
+      '荷物を頭上に入れる手伝いを頼む']},
+    {name:'ホテル', items:['チェックイン','チェックアウト','ルームサービスの注文',
+      '部屋のトラブル対応(Wi-Fi/エアコン等)','延泊・部屋変更の依頼']},
+    {name:'レストラン・接待', items:['レストランの予約','接待でのオーダー','乾杯・スピーチ',
+      '会計・割り勘','食事の好み・アレルギーを伝える']},
+    {name:'タクシー・移動', items:['タクシーの配車依頼','行き先の説明','道に迷った時の質問',
+      'レンタカーの手続き']},
+    {name:'日常・雑談', items:['天気の話題','週末の予定を聞く/話す','趣味の話','家族の話題',
+      '世間話の始め方・終わらせ方']},
+    {name:'緊急・トラブル', items:['体調不良を伝える','忘れ物・紛失の報告','道案内を頼む',
+      '警察・医療機関に説明する']},
+    {name:'メール・チャット', items:['メールの書き出し・結び','返信の催促','丁寧な断り方',
+      '添付ファイルの送付連絡','フォローアップメール','日程調整のメール']},
+    {name:'展示会・イベント', items:['展示会ブースでの声かけ','名刺交換','製品デモの説明',
+      '来場者への挨拶','フォローアップの約束']},
+    {name:'工場・現場対応', items:['工場見学の案内','安全上の注意説明','装置トラブルの報告',
+      '修理・保守の依頼','稼働状況の報告']},
+    {name:'契約・法務', items:['契約書内容の確認依頼','NDA(秘密保持契約)の締結','支払い条件の交渉',
+      '納期遅延の謝罪','保証内容の説明']},
+    {name:'社内コミュニケーション', items:['同僚との雑談','上司への進捗報告','チームミーティング',
+      '歓迎会・送別会の挨拶','リモートワークの調整依頼']},
+    {name:'ショッピング', items:['店員への質問','試着・サイズの相談','返品・交換の依頼',
+      '値段交渉','支払い方法の確認']},
+    {name:'医療・病院', items:['症状の説明','薬局でのやり取り','保険内容の確認',
+      '緊急時の対応','診察予約の変更']},
+    {name:'銀行・郵便局', items:['口座開設の手続き','送金の依頼','荷物の発送',
+      '両替の依頼','書類記入のサポート依頼']},
+    {name:'天候・災害対応', items:['悪天候による予定変更の連絡','フライト遅延への対応',
+      '避難情報の確認','緊急連絡先への連絡']},
+    {name:'趣味・スポーツ', items:['スポーツ観戦の話題','観戦チケットの購入','ジムでの会話',
+      '趣味を共有する','週末の過ごし方を話す']},
+    {name:'週末・休日の過ごし方', items:['週末の予定を話す','休日の振り返りを話す','旅行の計画を話す',
+      '映画・エンタメの話','アウトドア活動の話']},
+    {name:'家族の話', items:['子供の話をする','パートナーの話をする','家族旅行の計画を話す',
+      '親の近況を話す','家族行事の話']},
+    {name:'食べ物・グルメ', items:['好きな料理の話','おすすめのレストランを聞く','料理を作る話',
+      '食文化の違いを話す','ダイエット・健康食の話']},
+    {name:'カフェ・軽食', items:['カフェでの注文','テイクアウトの注文','コーヒーの好みを話す',
+      '休憩中の軽い雑談']},
+    {name:'音楽・映画・エンタメ', items:['好きな音楽の話','最近見た映画の話','おすすめ作品を聞く',
+      'コンサート・イベントの話']},
+    {name:'ペット', items:['ペットの話題','犬・猫の自慢話','ペットの世話について話す',
+      '動物好きトーク']},
+    {name:'季節の行事・イベント', items:['クリスマス・新年の挨拶','誕生日のお祝いの言葉',
+      '季節の変わり目の会話','地域のお祭りの話']}
+  ];
+  let categories = DEFAULT_CATEGORIES.map(c=>({name:c.name, items:c.items.slice()}));
+  async function loadCategories(){
+    try{
+      const r = await window.storage.get('categories', false);
+      if(r && r.value){
+        const parsed = JSON.parse(r.value);
+        if(Array.isArray(parsed) && parsed.length) categories = parsed;
+      }
+    }catch(e){ /* keep defaults */ }
+  }
+  async function saveCategories(){
+    try{ await window.storage.set('categories', JSON.stringify(categories), false); }
+    catch(e){ notifySaveError('カテゴリ'); }
+  }
+  let activeCat = null;
+
+  // ---------- settings ----------
+  const DEFAULT_SETTINGS = { theme: 'dark', voiceName: '', voiceRate: 0.92, voicePitch: 1.0, apiKey: '' };
+  let appSettings = Object.assign({}, DEFAULT_SETTINGS);
+  async function loadSettings(){
+    try{
+      const r = await window.storage.get('settings', false);
+      if(r && r.value) appSettings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(r.value));
+    }catch(e){ /* keep defaults */ }
+  }
+  async function saveSettings(){
+    try{ await window.storage.set('settings', JSON.stringify(appSettings), false); }
+    catch(e){ notifySaveError('設定'); }
+  }
+  function applyTheme(){
+    document.documentElement.classList.toggle('light-theme', appSettings.theme === 'light');
+    const toggle = $('darkModeToggle');
+    if(toggle) toggle.checked = appSettings.theme !== 'light';
+  }
+  function applyVoiceSettingsToUI(){
+    $('voiceRateInput').value = appSettings.voiceRate;
+    $('voiceRateVal').textContent = appSettings.voiceRate.toFixed(2);
+    $('voicePitchInput').value = appSettings.voicePitch;
+    $('voicePitchVal').textContent = appSettings.voicePitch.toFixed(2);
+    populateVoiceSelect();
+    if($('voiceSelect')) $('voiceSelect').value = appSettings.voiceName || '';
+    if($('apiKeyInput')) $('apiKeyInput').value = appSettings.apiKey || '';
+  }
+
+  // ---------- shared Anthropic API call helper ----------
+  // Inside Claude, requests to api.anthropic.com are authenticated automatically.
+  // Standalone (outside Claude), we attach the user's own API key from Settings.
+  async function callAnthropic(body){
+    const headers = { "Content-Type": "application/json" };
+    if(!IS_CLAUDE_ENV){
+      if(!appSettings.apiKey){
+        throw new Error('APIキーが未設定です。「設定」タブでAnthropic APIキーを入力してください。');
+      }
+      headers['x-api-key'] = appSettings.apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    }
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+    if(!response.ok){
+      let detail = '';
+      try{ detail = (await response.text()).slice(0,200); }catch(e){}
+      throw new Error(`API error: ${response.status}${detail ? ' - ' + detail : ''}`);
+    }
+    return response.json();
+  }
+
+  // ---------- undo (delete) ----------
+  let lastDeleted = null; // { type, item, index }
+  let undoTimer = null;
+  function showUndo(label){
+    $('undoToastText').textContent = label;
+    $('undoToast').style.display = 'flex';
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(()=>{ lastDeleted = null; $('undoToast').style.display = 'none'; }, 6000);
+  }
+
+  let phrases = [];
+  let lastGenSituation = "";
+  let lastGenEn = [];
+  let lastGenCount = 10;
+  let currentGenResults = null;
+  let reviewSessionIds = null;
+  let sessionMarks = {};
+  let editingPhraseId = null;
+
+  const $ = (id)=>document.getElementById(id);
+
+  // ---------- storage ----------
+  async function loadPhrases(){
+    try{
+      const r = await window.storage.get('phrases', false);
+      phrases = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ phrases = []; }
+  }
+  async function savePhrases(){
+    try{ await window.storage.set('phrases', JSON.stringify(phrases), false); }
+    catch(e){ notifySaveError('フレーズ'); }
+  }
+
+  let scripts = [];
+  async function loadScripts(){
+    try{
+      const r = await window.storage.get('scripts', false);
+      scripts = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ scripts = []; }
+  }
+  async function saveScripts(){
+    try{ await window.storage.set('scripts', JSON.stringify(scripts), false); }
+    catch(e){ notifySaveError('台本'); }
+  }
+
+  let links = [];
+  async function loadLinks(){
+    try{
+      const r = await window.storage.get('links', false);
+      links = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ links = []; }
+  }
+  async function saveLinks(){
+    try{ await window.storage.set('links', JSON.stringify(links), false); }
+    catch(e){ notifySaveError('リンク'); }
+  }
+
+  let studyTime = {}; // { 'YYYY-MM-DD': ms }
+  async function loadStudyTime(){
+    try{
+      const r = await window.storage.get('studyTime', false);
+      studyTime = r && r.value ? JSON.parse(r.value) : {};
+    }catch(e){ studyTime = {}; }
+  }
+  async function saveStudyTime(){
+    try{ await window.storage.set('studyTime', JSON.stringify(studyTime), false); }
+    catch(e){ notifySaveError('学習時間'); }
+  }
+
+  let convoLogs = []; // { id, situation, createdAt, updatedAt, transcript:[{role,text}], feedback, completed }
+  async function loadConvoLogs(){
+    try{
+      const r = await window.storage.get('convoLogs', false);
+      convoLogs = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ convoLogs = []; }
+  }
+  async function saveConvoLogs(){
+    try{ await window.storage.set('convoLogs', JSON.stringify(convoLogs), false); }
+    catch(e){ notifySaveError('会話ログ'); }
+  }
+
+  function todayStr(d){ const dt = d?new Date(d):new Date(); return dt.toISOString().slice(0,10); }
+
+  // ---------- audio player (Web Audio API decode-to-buffer playback) ----------
+  // We deliberately avoid <audio src="blob:...">/<audio src="data:...">: sandboxed
+  // preview environments can block those via CSP media-src, which showed up as a
+  // generic "no supported source" error even for perfectly valid mp3 files. Decoding
+  // the file's raw bytes with the Web Audio API and playing it through an
+  // AudioBufferSourceNode sidesteps that entirely — there is no <audio> src to block.
+  let audioCtx = null;
+  function getAudioCtx(){
+    if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    if(audioCtx.state === 'suspended'){ audioCtx.resume().catch(()=>{}); }
+    return audioCtx;
+  }
+
+  let tracks = []; // { name, buffer: AudioBuffer|null }
+  let currentTrackIndex = -1;
+  let pointA = null, pointB = null;
+  let sectionRepeatOn = false;
+  let singleRepeatOn = false;
+  let currentSpeed = 1.0;
+
+  let sourceNode = null;
+  let isPlaying = false;
+  let playStartCtxTime = 0;
+  let playStartOffset = 0;
+  let tickTimer = null;
+
+  function fmtTime(s){
+    if(!isFinite(s) || s < 0) return '00:00';
+    const m = Math.floor(s/60), sec = Math.floor(s%60);
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  }
+
+  function currentDuration(){
+    const t = tracks[currentTrackIndex];
+    return t && t.buffer ? t.buffer.duration : 0;
+  }
+  function getElapsed(){
+    if(!isPlaying) return playStartOffset;
+    const ctx = getAudioCtx();
+    return playStartOffset + (ctx.currentTime - playStartCtxTime) * currentSpeed;
+  }
+  function stopSourceNode(){
+    if(sourceNode){
+      sourceNode.onended = null;
+      try{ sourceNode.stop(); }catch(e){}
+      try{ sourceNode.disconnect(); }catch(e){}
+      sourceNode = null;
+    }
+  }
+  function startTicking(){
+    stopTicking();
+    tickTimer = setInterval(tick, 200);
+  }
+  function stopTicking(){
+    if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+  }
+  function tick(){
+    const dur = currentDuration();
+    const elapsed = getElapsed();
+    $('seekBar').max = dur || 0;
+    $('seekBar').value = Math.min(elapsed, dur);
+    $('timeDisplay').textContent = `${fmtTime(elapsed)} / ${fmtTime(dur)}`;
+    if(sectionRepeatOn && pointB !== null && elapsed >= pointB){
+      startPlaybackFrom(pointA || 0);
+    }
+  }
+  function handleTrackEnded(){
+    stopTicking();
+    $('btnPlayPause').textContent = '▶';
+    if(sectionRepeatOn && pointB !== null){ startPlaybackFrom(pointA || 0); return; }
+    if(singleRepeatOn){ startPlaybackFrom(0); return; }
+    if(currentTrackIndex < tracks.length - 1){ loadTrack(currentTrackIndex+1, true); }
+  }
+  function startPlaybackFrom(offsetSec){
+    const t = tracks[currentTrackIndex];
+    if(!t || !t.buffer) return;
+    stopSourceNode();
+    const ctx = getAudioCtx();
+    const dur = t.buffer.duration;
+    const clamped = Math.max(0, Math.min(offsetSec, Math.max(0, dur - 0.02)));
+    const src = ctx.createBufferSource();
+    src.buffer = t.buffer;
+    src.playbackRate.value = currentSpeed;
+    src.connect(ctx.destination);
+    src.start(0, clamped);
+    playStartCtxTime = ctx.currentTime;
+    playStartOffset = clamped;
+    sourceNode = src;
+    isPlaying = true;
+    src.onended = ()=>{
+      if(sourceNode !== src) return;
+      isPlaying = false;
+      sourceNode = null;
+      handleTrackEnded();
+    };
+    $('btnPlayPause').textContent = '⏸';
+    setPlayerStatus('');
+    startTicking();
+  }
+
+  function renderPlaylist(){
+    const box = $('playlistBox');
+    if(!tracks.length){ box.innerHTML = ''; return; }
+    box.innerHTML = tracks.map((t,i)=>`<div class="track-row${i===currentTrackIndex?' now-playing':''}" data-act="track-play" data-idx="${i}">
+      <span class="track-name">${escapeHtml(t.name)}</span>
+      <button class="track-remove-btn" data-act="track-remove" data-idx="${i}">✕</button>
+    </div>`).join('');
+  }
+
+  function setPlayerStatus(msg, isErr){
+    const el = $('playerStatus');
+    el.textContent = msg || '';
+    el.classList.toggle('err', !!isErr);
+  }
+
+  function loadTrack(idx, keepPlaying){
+    if(idx < 0 || idx >= tracks.length) return;
+    stopTicking();
+    stopSourceNode();
+    isPlaying = false;
+    currentTrackIndex = idx;
+    playStartOffset = 0;
+    setPlayerStatus('');
+    $('nowPlayingTitle').textContent = tracks[idx].name;
+    $('nowPlayingTitle').style.display = 'block';
+    $('seekBar').value = 0;
+    $('seekBar').max = currentDuration();
+    $('timeDisplay').textContent = `00:00 / ${fmtTime(currentDuration())}`;
+    $('btnPlayPause').textContent = '▶';
+    pointA = null; pointB = null; updateABStatus();
+    renderPlaylist();
+    if(keepPlaying){ startPlaybackFrom(0); }
+  }
+
+  function playAudio(){
+    if(currentTrackIndex < 0) return;
+    try{ startPlaybackFrom(getElapsed()); }
+    catch(err){ setPlayerStatus('再生を開始できませんでした: ' + err.message, true); }
+  }
+  function pauseAudio(){
+    if(!isPlaying) return;
+    playStartOffset = getElapsed();
+    stopSourceNode();
+    isPlaying = false;
+    $('btnPlayPause').textContent = '▶';
+    stopTicking();
+  }
+
+  function setSpeed(v){
+    v = Math.min(2.0, Math.max(0.5, Math.round(v*100)/100));
+    const elapsed = getElapsed();
+    currentSpeed = v;
+    if(sourceNode){ sourceNode.playbackRate.value = v; }
+    if(isPlaying){ playStartCtxTime = getAudioCtx().currentTime; playStartOffset = elapsed; }
+    document.querySelectorAll('#speedPresetRow .btn-count').forEach(b=>{
+      b.classList.toggle('speed-active', Math.abs(parseFloat(b.dataset.speed) - v) < 0.005);
+    });
+    $('speedSlider').value = v;
+    $('speedDisplay').textContent = v.toFixed(2) + 'x';
+  }
+
+  function updateABStatus(){
+    $('abStatus').textContent = `A: ${pointA!==null?fmtTime(pointA):'--'} / B: ${pointB!==null?fmtTime(pointB):'--'}`;
+  }
+
+  function seekTo(offsetSec){
+    const dur = currentDuration();
+    offsetSec = Math.max(0, Math.min(offsetSec, dur));
+    if(isPlaying){ startPlaybackFrom(offsetSec); }
+    else{
+      playStartOffset = offsetSec;
+      $('seekBar').value = offsetSec;
+      $('timeDisplay').textContent = `${fmtTime(offsetSec)} / ${fmtTime(dur)}`;
+    }
+  }
+
+  // ---------- TTS ----------
+  let voices = [];
+  function loadVoices(){
+    voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    populateVoiceSelect();
+  }
+  if(window.speechSynthesis){
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+  function populateVoiceSelect(){
+    const sel = $('voiceSelect');
+    if(!sel) return;
+    const enVoices = voices.filter(v=>v.lang && v.lang.startsWith('en'));
+    const list = enVoices.length ? enVoices : voices;
+    const current = sel.value || appSettings.voiceName || '';
+    sel.innerHTML = '<option value="">(自動選択)</option>' +
+      list.map(v=>`<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)} (${escapeHtml(v.lang)})</option>`).join('');
+    if(current) sel.value = current;
+  }
+  function speak(text, onEnd){
+    if(!window.speechSynthesis){ if(onEnd) onEnd(); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    let chosen = null;
+    if(appSettings.voiceName){
+      chosen = voices.find(v=>v.name === appSettings.voiceName);
+    }
+    if(!chosen){
+      chosen = voices.find(v=>v.lang && v.lang.startsWith('en-US')) || voices.find(v=>v.lang && v.lang.startsWith('en'));
+    }
+    if(chosen) u.voice = chosen;
+    u.lang = 'en-US';
+    u.rate = appSettings.voiceRate || 0.92;
+    u.pitch = appSettings.voicePitch || 1.0;
+    if(onEnd){ u.onend = onEnd; u.onerror = onEnd; }
+    window.speechSynthesis.speak(u);
+  }
+
+  // ---------- rendering ----------
+  function renderStats(){
+    // header stats removed in favor of a live clock (see updateHdrClock)
+  }
+
+  function updateHdrClock(){
+    const d = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const dow = ['sun','mon','tue','wed','thu','fri','sat'][d.getDay()];
+    $('hdrClock').textContent = `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}(${dow}) ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  updateHdrClock();
+  setInterval(updateHdrClock, 1000);
+
+  function statusOf(p){
+    if(p.status === 'mastered') return 'mastered';
+    if(p.reviewCount > 0) return 'reviewing';
+    return 'new';
+  }
+  function stampLabel(s){ return s==='mastered' ? 'MASTERED' : s==='reviewing' ? 'REVIEWING' : 'NEW'; }
+
+  function cardHTML(p, idx, opts){
+    opts = opts || {};
+    const st = statusOf(p);
+    let topIcons = '';
+    if(opts.review){
+      const mark = opts.sessionMark;
+      topIcons += `<button class="mini-icon-btn" data-act="speak" data-id="${p.id}" title="再生">🔊</button>`;
+      topIcons += `<button class="mini-icon-btn${mark==='good'?' active-good':''}" data-act="master" data-id="${p.id}" title="できた">✓</button>`;
+      topIcons += `<button class="mini-icon-btn${mark==='bad'?' active-warn':''}" data-act="again" data-id="${p.id}" title="できなかった">✕</button>`;
+      topIcons += `<button class="mini-icon-btn" data-act="phrase-edit" data-id="${p.id}" title="編集">✎</button>`;
+    }else{
+      topIcons += `<button class="mini-icon-btn" data-act="speak" data-id="${p.id}" title="再生">🔊</button>`;
+      topIcons += `<button class="mini-icon-btn" data-act="phrase-edit" data-id="${p.id}" title="編集">✎</button>`;
+      if(opts.registerable && !p.registered){
+        topIcons += `<button class="mini-icon-btn" data-act="register" data-id="${p.id}" title="復習に登録">＋</button>`;
+      }
+      if(opts.deletable){
+        topIcons += `<button class="mini-icon-btn del" data-act="delete" data-id="${p.id}" title="削除">🗑</button>`;
+      }
+    }
+    return `<div class="card ${st}">
+      <div class="card-top">
+        <span class="card-serial">#${String(idx).padStart(4,'0')} — ${p.situation ? escapeHtml(p.situation).slice(0,30) : ''}</span>
+        <span class="card-top-right">
+          ${(opts.review && st!=='new') ? `<span class="stamp ${st}">${stampLabel(st)}</span>` : ''}
+          ${topIcons}
+        </span>
+      </div>
+      <div class="card-en">${escapeHtml(p.en)}</div>
+      <div class="jp-hint">タップして和訳・コメントを表示</div>
+      <div class="card-jp">${escapeHtml(p.jp||'')}</div>
+      ${p.note ? `<div class="card-note">${escapeHtml(p.note)}</div>` : ''}
+    </div>`;
+  }
+
+  function escapeHtml(s){
+    return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function renderToday(){
+    const t = todayStr();
+    const list = phrases.filter(p=>todayStr(p.createdAt)===t).sort((a,b)=>b.createdAt-a.createdAt);
+    $('todayCount').textContent = list.length + '件';
+    if(!list.length){
+      $('todayList').innerHTML = `<div class="empty">まだ今日のフレーズはありません。上のシチュエーション欄から生成してみましょう。</div>`;
+      return;
+    }
+    $('todayList').innerHTML = list.map((p,i)=>cardHTML(p, phrases.indexOf(p)+1, {deletable:true, registerable:true})).join('');
+  }
+
+  function computeDueIds(cap){
+    const t = todayStr();
+    let list = phrases
+      .filter(p => p.registered)
+      .filter(p => statusOf(p) !== 'mastered')
+      .filter(p => !p.lastReviewed || todayStr(p.lastReviewed) !== t)
+      .sort((a,b)=>a.createdAt-b.createdAt)
+      .map(p=>p.id);
+    if(cap) list = list.slice(0, cap);
+    return list;
+  }
+
+  function renderReview(){
+    const freshDue = computeDueIds(); // uncapped, so newly-registered phrases are always picked up
+    if(reviewSessionIds === null){
+      reviewSessionIds = freshDue.slice(0,15);
+    }else{
+      const currentIds = new Set(reviewSessionIds);
+      freshDue.forEach(id=>{ if(!currentIds.has(id)) reviewSessionIds.push(id); });
+    }
+    const due = reviewSessionIds.map(id=>phrases.find(p=>p.id===id)).filter(Boolean);
+    if(!due.length){
+      $('reviewList').innerHTML = `<div class="empty"><b>復習するフレーズがありません。</b><br>すべて今日レビュー済みか、まだ「復習に登録」されていません。<br>「生成」タブでフレーズを追加し、登録しましょう。</div>`;
+      return;
+    }
+    const doneCount = due.filter(p=>sessionMarks[p.id]).length;
+    $('reviewList').innerHTML =
+      `<div class="today-hdr"><span>復習対象</span><span>${doneCount}/${due.length} 完了</span></div>` +
+      `<div class="btn-row"><button class="btn btn-ghost" id="reviewRefreshBtn">リストを更新</button></div>` +
+      due.map(p=>cardHTML(p, phrases.indexOf(p)+1, {review:true, sessionMark: sessionMarks[p.id]||null})).join('');
+    const rb = $('reviewRefreshBtn');
+    if(rb) rb.addEventListener('click', ()=>{
+      reviewSessionIds = computeDueIds(15);
+      sessionMarks = {};
+      renderReview();
+    });
+  }
+
+  function renderHistory(){
+    if(!phrases.length){
+      $('historyList').innerHTML = `<div class="empty">まだフレーズが登録されていません。</div>`;
+      return;
+    }
+    const byDate = {};
+    phrases.forEach(p=>{
+      const d = todayStr(p.createdAt);
+      (byDate[d] = byDate[d]||[]).push(p);
+    });
+    const dates = Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+    $('historyList').innerHTML = dates.map(d=>{
+      const items = byDate[d].sort((a,b)=>b.createdAt-a.createdAt);
+      return `<div class="date-hdr"><span>${d}</span><span>${items.length}件</span></div>` +
+        items.map(p=>historyCardHTML(p, phrases.indexOf(p)+1)).join('');
+    }).join('');
+  }
+
+  function historyCardHTML(p, idx){
+    let actions = `<button class="icon-btn" data-act="speak" data-id="${p.id}">🔊 再生</button>`;
+    actions += `<button class="icon-btn" data-act="phrase-edit" data-id="${p.id}">✎ 編集</button>`;
+    if(!p.registered){
+      actions += `<button class="icon-btn good" data-act="register" data-id="${p.id}">＋ 復習に登録</button>`;
+    }
+    actions += `<button class="icon-btn del" data-act="delete" data-id="${p.id}">🗑 削除</button>`;
+    return `<div class="card history-card">
+      <div class="card-top">
+        <span class="card-serial">#${String(idx).padStart(4,'0')}</span>
+      </div>
+      <div class="card-en">${escapeHtml(p.en)}</div>
+      <div class="jp-hint">タップして和訳・操作を表示</div>
+      <div class="card-jp">${escapeHtml(p.jp||'')}</div>
+      ${p.note ? `<div class="card-note">${escapeHtml(p.note)}</div>` : ''}
+      <div class="card-actions">${actions}</div>
+    </div>`;
+  }
+
+  function renderAll(){
+    renderStats(); renderToday(); renderReview(); renderHistory();
+    if(currentGenResults) renderGenResults(currentGenResults.list, currentGenResults.situation, currentGenResults.count);
+  }
+
+  // ---------- scripts ----------
+  let scriptsReorderMode = false;
+  let scriptsSortable = null;
+
+  function scriptCardHTML(s, idx, reorderMode){
+    if(reorderMode){
+      return `<div class="card script-card" data-id="${s.id}" style="cursor:grab;">
+        <div class="card-top" style="align-items:center;margin-bottom:0;">
+          <span class="drag-handle">☰</span>
+          <span class="script-title" style="margin:0;padding-left:6px;flex:1;">${escapeHtml(s.title)}</span>
+        </div>
+      </div>`;
+    }
+    const hasExtra = !!(s.body || s.memo);
+    return `<div class="card script-card">
+      <div class="card-top">
+        <span class="card-serial">#${String(idx).padStart(3,'0')} — ${todayStr(s.createdAt)}</span>
+        <span class="card-top-right">
+          ${s.body ? `<button class="mini-icon-btn" data-act="speak-script" data-id="${s.id}" title="再生">🔊</button>` : ''}
+          <button class="mini-icon-btn" data-act="script-edit" data-id="${s.id}" title="編集">✎</button>
+          <button class="mini-icon-btn del" data-act="script-delete" data-id="${s.id}" title="削除">🗑</button>
+        </span>
+      </div>
+      <div class="script-title">${escapeHtml(s.title)}</div>
+      ${hasExtra ? `<div class="jp-hint">タップして本文を表示</div>` : ''}
+      ${s.body ? `<div class="script-body">${escapeHtml(s.body)}</div>` : ''}
+      ${s.memo ? `<div class="script-memo">${escapeHtml(s.memo)}</div>` : ''}
+    </div>`;
+  }
+
+  function renderScripts(){
+    if(!scripts.length){
+      $('scriptsList').innerHTML = `<div class="empty">まだ台本が登録されていません。「＋ 台本を追加」から登録しましょう。</div>`;
+      if(scriptsSortable){ scriptsSortable.destroy(); scriptsSortable = null; }
+      return;
+    }
+    $('scriptsList').innerHTML = scripts.map((s,i)=>scriptCardHTML(s, i+1, scriptsReorderMode)).join('');
+    if(scriptsReorderMode){
+      if(scriptsSortable) scriptsSortable.destroy();
+      scriptsSortable = Sortable.create($('scriptsList'), {
+        animation: 150,
+        handle: '.drag-handle',
+        onEnd: ()=>{
+          const ids = Array.from($('scriptsList').children).map(el=>el.dataset.id);
+          scripts = ids.map(id=>scripts.find(s=>s.id===id)).filter(Boolean);
+          saveScripts();
+        }
+      });
+    }else if(scriptsSortable){
+      scriptsSortable.destroy(); scriptsSortable = null;
+    }
+  }
+
+  // ---------- links & study time ----------
+  function normalizeUrl(u){
+    u = (u||'').trim();
+    if(!u) return '';
+    if(!/^https?:\/\//i.test(u)) return 'https://' + u;
+    return u;
+  }
+  function formatDuration(ms){
+    const totalMin = Math.round((ms||0) / 60000);
+    if(totalMin < 60) return `${totalMin}分`;
+    const h = Math.floor(totalMin/60), m = totalMin % 60;
+    return `${h}時間${m}分`;
+  }
+
+  let linksReorderMode = false;
+  let linksSortable = null;
+
+  function linkCardHTML(l, idx, reorderMode){
+    if(reorderMode){
+      return `<div class="card link-card" data-id="${l.id}" style="cursor:grab;">
+        <div class="card-top" style="align-items:center;margin-bottom:0;">
+          <span class="drag-handle">☰</span>
+          <span class="script-title" style="margin:0;padding-left:6px;flex:1;">${escapeHtml(l.title)}</span>
+        </div>
+      </div>`;
+    }
+    const isActive = !!(activeSession && activeSession.linkId === l.id);
+    return `<div class="card link-card" style="padding-top:9px;padding-bottom:9px;">
+      <div class="card-top" style="align-items:center;margin-bottom:0;flex-wrap:wrap;row-gap:4px;">
+        <span class="script-title" style="margin:0;flex:1 1 auto;min-width:80px;overflow:hidden;
+          text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.title)}</span>
+        <span style="display:flex;align-items:center;gap:8px;flex:0 0 auto;padding-left:8px;">
+          ${(isActive || l.goalMinutes) ? `<span class="link-meta">
+            ${isActive ? `<span class="link-timer" id="linkTimer-${l.id}">00:00</span>` : ''}
+            ${l.goalMinutes ? `<span class="link-goal">目標 ${l.goalMinutes}分</span>` : ''}
+          </span>` : ''}
+          <span class="card-top-right">
+            ${l.url ? `<button class="mini-icon-btn" data-act="link-open" data-id="${l.id}" title="リンクを開く">🔗</button>` : ''}
+            ${isActive
+              ? `<button class="mini-icon-btn active-warn" data-act="link-timer-stop" data-id="${l.id}" title="終了">■</button>`
+              : `<button class="mini-icon-btn" data-act="link-timer-start" data-id="${l.id}" title="開始">▶</button>`}
+            <button class="mini-icon-btn" data-act="link-edit" data-id="${l.id}" title="編集">✎</button>
+            <button class="mini-icon-btn del" data-act="link-delete" data-id="${l.id}" title="削除">🗑</button>
+          </span>
+        </span>
+      </div>
+    </div>`;
+  }
+
+  function renderLinks(){
+    if(!links.length){
+      $('linksList').innerHTML = `<div class="empty">まだリンクが登録されていません。「＋ リンクを追加」から登録しましょう。</div>`;
+      if(linksSortable){ linksSortable.destroy(); linksSortable = null; }
+      return;
+    }
+    $('linksList').innerHTML = links.map((l,i)=>linkCardHTML(l, i+1, linksReorderMode)).join('');
+    if(linksReorderMode){
+      if(linksSortable) linksSortable.destroy();
+      linksSortable = Sortable.create($('linksList'), {
+        animation: 150,
+        handle: '.drag-handle',
+        onEnd: ()=>{
+          const ids = Array.from($('linksList').children).map(el=>el.dataset.id);
+          links = ids.map(id=>links.find(l=>l.id===id)).filter(Boolean);
+          saveLinks();
+        }
+      });
+    }else if(linksSortable){
+      linksSortable.destroy(); linksSortable = null;
+    }
+  }
+
+  function renderStudyTimeStats(){
+    $('linkTodayTime').textContent = formatDuration(studyTime[todayStr()]||0);
+    const dates = Object.keys(studyTime).sort((a,b)=>b.localeCompare(a)).slice(0,14);
+    if(!dates.length){
+      $('studyTimeHistory').innerHTML = `<div class="empty">まだ記録がありません。リンクのカードで「開始」を押すと学習時間の計測が始まります。</div>`;
+      return;
+    }
+    $('studyTimeHistory').innerHTML = dates.map(d=>
+      `<div class="date-hdr"><span>${d}</span><span>${formatDuration(studyTime[d])}</span></div>`
+    ).join('');
+  }
+
+  // ---------- per-link study timer ----------
+  let activeSession = null; // { linkId, startedAt }
+  let sessionTimerInterval = null;
+
+  function tickLinkTimer(){
+    if(!activeSession) return;
+    const el = document.getElementById('linkTimer-' + activeSession.linkId);
+    if(!el) return;
+    const elapsedSec = Math.max(0, Math.floor((Date.now() - activeSession.startedAt)/1000));
+    const mm = String(Math.floor(elapsedSec/60)).padStart(2,'0');
+    const ss = String(elapsedSec%60).padStart(2,'0');
+    el.textContent = `${mm}:${ss}`;
+  }
+
+  async function startLinkTimer(linkId){
+    await finalizeSession();
+    activeSession = { linkId, startedAt: Date.now() };
+    renderLinks();
+    if(sessionTimerInterval) clearInterval(sessionTimerInterval);
+    sessionTimerInterval = setInterval(tickLinkTimer, 1000);
+    tickLinkTimer();
+  }
+
+  async function finalizeSession(){
+    if(!activeSession) return;
+    const elapsed = Date.now() - activeSession.startedAt;
+    const d = todayStr(activeSession.startedAt);
+    studyTime[d] = (studyTime[d]||0) + elapsed;
+    await saveStudyTime();
+    activeSession = null;
+    if(sessionTimerInterval){ clearInterval(sessionTimerInterval); sessionTimerInterval = null; }
+    renderLinks();
+    renderStudyTimeStats();
+  }
+
+  // ---------- actions ----------
+  document.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-act]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const act = btn.dataset.act;
+
+    if(act === 'speak-script'){
+      const s = scripts.find(x=>x.id===id);
+      if(s) speak(s.body);
+      return;
+    }
+    if(act === 'track-play'){
+      const idx = parseInt(btn.dataset.idx, 10);
+      loadTrack(idx, true);
+      return;
+    }
+    if(act === 'track-remove'){
+      const idx = parseInt(btn.dataset.idx, 10);
+      if(idx < 0 || idx >= tracks.length) return;
+      if(idx === currentTrackIndex){
+        pauseAudio(); stopTicking(); currentTrackIndex = -1;
+        $('nowPlayingTitle').textContent = ''; $('nowPlayingTitle').style.display = 'none';
+      }else if(idx < currentTrackIndex){
+        currentTrackIndex--;
+      }
+      tracks.splice(idx, 1);
+      renderPlaylist();
+      return;
+    }
+    if(act === 'script-edit'){
+      const s = scripts.find(x=>x.id===id);
+      if(!s) return;
+      editingScriptId = s.id;
+      $('scriptTitleInput').value = s.title;
+      $('scriptBodyInput').value = s.body || '';
+      $('scriptMemoInput').value = s.memo || '';
+      $('scriptStatus').textContent = '';
+      $('scriptSaveBtn').textContent = '更新';
+      $('scriptForm').style.display = 'block';
+      $('scriptForm').scrollIntoView({behavior:'smooth', block:'start'});
+      return;
+    }
+    if(act === 'script-delete'){
+      const idx = scripts.findIndex(x=>x.id===id);
+      if(idx>=0){
+        const [removed] = scripts.splice(idx,1);
+        lastDeleted = { type:'script', item: removed, index: idx };
+        await saveScripts(); renderScripts();
+        showUndo('台本を削除しました');
+      }
+      return;
+    }
+    if(act === 'convolog-delete'){
+      const idx = convoLogs.findIndex(x=>x.id===id);
+      if(idx>=0){
+        const [removed] = convoLogs.splice(idx,1);
+        lastDeleted = { type:'convolog', item: removed, index: idx };
+        await saveConvoLogs(); renderConvoLogs();
+        showUndo('会話ログを削除しました');
+      }
+      return;
+    }
+    if(act === 'convolog-resume'){
+      const log = convoLogs.find(x=>x.id===id);
+      if(!log) return;
+      convoSystemPrompt = buildConvoSystemPrompt(log.situation);
+      convoDisplayHistory = (log.transcript||[]).slice();
+      convoApiHistory = [{ role:'user', content:'(Please start our conversation naturally based on the situation. Speak first, in 1-2 sentences, in English only.)' }]
+        .concat(convoDisplayHistory.map(h=>({ role: h.role, content: h.text })));
+      currentConvoLogId = log.id;
+      convoSessionActive = true;
+      $('convoSituationInput').value = log.situation;
+      $('convoFeedback').style.display = 'none';
+      $('convoSession').style.display = 'block';
+      renderConvoTranscript();
+      const practiceTab = document.querySelector('.subtab[data-subtab="practice"]');
+      if(practiceTab) practiceTab.click();
+      const convoModeChip = document.querySelector('.practice-mode-chip[data-mode="conversation"]');
+      if(convoModeChip) convoModeChip.click();
+
+      // If the saved log left off on an unanswered user turn (e.g. the app closed before the
+      // AI replied), the history now ends in 'user'. Sending another message would create two
+      // consecutive user turns, which the API rejects and silently breaks all future replies.
+      // Fetch the missing reply now so the conversation is back in a valid state.
+      const lastEntry = convoDisplayHistory[convoDisplayHistory.length - 1];
+      if(lastEntry && lastEntry.role === 'user'){
+        setConvoBusy(true, '前回の続きの応答を取得中…');
+        try{
+          const reply = await convoCallClaude(convoApiHistory);
+          convoApiHistory.push({ role:'assistant', content: reply });
+          convoDisplayHistory.push({ role:'assistant', text: reply });
+          renderConvoTranscript();
+          await syncCurrentConvoLog();
+          setConvoBusy(false, '');
+          speak(reply, afterAiSpeaks);
+        }catch(err){
+          setConvoErr('応答の取得に失敗しました: ' + err.message);
+        }
+      }
+      return;
+    }
+    if(act === 'convolog-feedback'){
+      const log = convoLogs.find(x=>x.id===id);
+      if(!log || feedbackLoadingId) return;
+      feedbackLoadingId = log.id;
+      renderConvoLogs();
+      try{
+        const feedback = await generateConvoFeedback(log.transcript||[]);
+        log.feedback = feedback;
+        log.feedbackForTurnCount = (log.transcript||[]).length;
+        log.completed = true;
+        log.updatedAt = Date.now();
+        await saveConvoLogs();
+      }catch(err){
+        console.error('feedback generation failed', err);
+      }
+      feedbackLoadingId = null;
+      renderConvoLogs();
+      return;
+    }
+
+    if(act === 'link-open'){
+      const l = links.find(x=>x.id===id);
+      if(l && l.url){
+        window.open(l.url, '_blank', 'noopener');
+      }
+      return;
+    }
+    if(act === 'link-timer-start'){
+      await startLinkTimer(id);
+      return;
+    }
+    if(act === 'link-timer-stop'){
+      await finalizeSession();
+      return;
+    }
+    if(act === 'link-edit'){
+      const l = links.find(x=>x.id===id);
+      if(!l) return;
+      editingLinkId = l.id;
+      $('linkTitleInput').value = l.title;
+      $('linkUrlInput').value = l.url || '';
+      $('linkGoalInput').value = l.goalMinutes || '';
+      $('linkStatus').textContent = '';
+      $('linkStatus').classList.remove('err');
+      $('linkSaveBtn').textContent = '更新';
+      $('linkForm').style.display = 'block';
+      $('linkForm').scrollIntoView({behavior:'smooth', block:'start'});
+      return;
+    }
+    if(act === 'link-delete'){
+      const idx = links.findIndex(x=>x.id===id);
+      if(idx>=0){
+        const [removed] = links.splice(idx,1);
+        lastDeleted = { type:'link', item: removed, index: idx };
+        await saveLinks(); renderLinks();
+        showUndo('リンクを削除しました');
+      }
+      return;
+    }
+
+    const p = phrases.find(x=>x.id===id);
+    if(!p) return;
+    if(act === 'speak'){ speak(p.en); }
+    else if(act === 'register'){
+      p.registered = true;
+      await savePhrases(); renderAll();
+    }
+    else if(act === 'master'){
+      p.reviewCount = (p.reviewCount||0)+1; p.lastReviewed = Date.now();
+      p.status = p.reviewCount >= 3 ? 'mastered' : 'reviewing';
+      sessionMarks[id] = 'good';
+      await savePhrases(); renderAll();
+    }else if(act === 'again'){
+      p.reviewCount = 0; p.status = 'reviewing'; p.lastReviewed = Date.now();
+      sessionMarks[id] = 'bad';
+      await savePhrases(); renderAll();
+    }else if(act === 'delete'){
+      const idx = phrases.findIndex(x=>x.id===id);
+      if(idx>=0){
+        const [removed] = phrases.splice(idx,1);
+        lastDeleted = { type:'phrase', item: removed, index: idx };
+        await savePhrases(); renderAll();
+        showUndo('フレーズを削除しました');
+      }
+    }else if(act === 'phrase-edit'){
+      editingPhraseId = p.id;
+      $('manualPhraseEnInput').value = p.en;
+      $('manualPhraseJpInput').value = p.jp || '';
+      $('manualPhraseNoteInput').value = p.note || '';
+      $('manualPhraseStatus').textContent = '';
+      $('manualPhraseStatus').classList.remove('err');
+      $('manualPhraseSaveBtn').textContent = '更新';
+      const genTab = document.querySelector('.subtab[data-subtab="gen"]');
+      if(genTab) genTab.click();
+      $('manualPhraseForm').style.display = 'block';
+      $('manualPhraseForm').scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  });
+
+  // tap card (outside of action buttons) to reveal Japanese translation
+  document.addEventListener('click', (e)=>{
+    if(e.target.closest('[data-act]')) return;
+    const card = e.target.closest('.card');
+    if(!card) return;
+    card.classList.toggle('revealed');
+  });
+
+  // tabs / pager
+  const PAGE_IDS = ['phrases','scripts','player','links','settings'];
+  const pagerEl = $('pager');
+  let scrollSyncTimer = null;
+
+  function setActiveTab(id){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===id));
+  }
+  function scrollToPage(id, smooth){
+    const idx = PAGE_IDS.indexOf(id);
+    if(idx < 0) return;
+    pagerEl.scrollTo({ left: idx * pagerEl.clientWidth, behavior: smooth===false ? 'auto' : 'smooth' });
+    setActiveTab(id);
+  }
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click', ()=> scrollToPage(tab.dataset.tab));
+  });
+  pagerEl.addEventListener('scroll', ()=>{
+    clearTimeout(scrollSyncTimer);
+    scrollSyncTimer = setTimeout(()=>{
+      const idx = Math.round(pagerEl.scrollLeft / pagerEl.clientWidth);
+      setActiveTab(PAGE_IDS[idx] || PAGE_IDS[0]);
+    }, 90);
+  });
+  $('pagerPrev').addEventListener('click', ()=>{
+    const cur = document.querySelector('.tab.active');
+    const idx = Math.max(0, PAGE_IDS.indexOf(cur ? cur.dataset.tab : 'gen') - 1);
+    scrollToPage(PAGE_IDS[idx]);
+  });
+  $('pagerNext').addEventListener('click', ()=>{
+    const cur = document.querySelector('.tab.active');
+    const idx = Math.min(PAGE_IDS.length-1, PAGE_IDS.indexOf(cur ? cur.dataset.tab : 'gen') + 1);
+    scrollToPage(PAGE_IDS[idx]);
+  });
+  window.addEventListener('resize', ()=>{
+    if(!pagerEl.clientWidth) return; // guard against transient 0-width during mobile keyboard show/hide
+    const cur = document.querySelector('.tab.active');
+    if(cur) scrollToPage(cur.dataset.tab, false);
+  });
+
+  // sub-tabs within the フレーズ page (生成 / 復習 / 履歴)
+  document.querySelectorAll('.subtab').forEach(st=>{
+    st.addEventListener('click', ()=>{
+      document.querySelectorAll('.subtab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.subpanel').forEach(p=>p.classList.remove('active'));
+      st.classList.add('active');
+      $('subpanel-'+st.dataset.subtab).classList.add('active');
+    });
+  });
+
+  // categories -> items
+  function renderCategories(){
+    $('catChips').innerHTML = categories.map(c=>
+      `<span class="chip cat-chip${c.name===activeCat?' active':''}" data-cat="${escapeHtml(c.name)}">${c.name}</span>`
+    ).join('');
+  }
+  function renderItems(){
+    const cat = categories.find(c=>c.name===activeCat);
+    $('itemChips').innerHTML = cat
+      ? cat.items.map(i=>`<span class="chip item-chip" data-item="${escapeHtml(i)}">${i}</span>`).join('')
+      : '';
+  }
+  $('catChips').addEventListener('click', (e)=>{
+    const c = e.target.closest('.cat-chip');
+    if(!c) return;
+    activeCat = (activeCat === c.dataset.cat) ? null : c.dataset.cat;
+    renderCategories(); renderItems();
+  });
+  $('itemChips').addEventListener('click', (e)=>{
+    const it = e.target.closest('.item-chip');
+    if(!it) return;
+    $('situationInput').value = it.dataset.item;
+  });
+  renderCategories(); renderItems();
+
+  // ---------- category & item management ----------
+  function renderCatEditList(){
+    $('catEditList').innerHTML = categories.map((c,i)=>`
+      <div class="card" style="cursor:default;padding:8px 10px;margin-bottom:5px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" class="cat-rename-input" data-idx="${i}" value="${escapeHtml(c.name)}"
+            style="flex:1;min-width:0;background:transparent;border:1px solid var(--border);border-radius:6px;
+            color:var(--text-primary);padding:6px 8px;font-size:13px;font-family:inherit;">
+          <button class="mini-icon-btn del" data-act="cat-delete" data-idx="${i}" title="削除">🗑</button>
+        </div>
+      </div>`).join('');
+  }
+  function renderItemEditList(){
+    const cat = categories.find(c=>c.name===activeCat);
+    $('itemEditHeader').textContent = cat ? `項目の編集: ${cat.name}` : '項目の編集(大分類を選択)';
+    if(!cat){ $('itemEditList').innerHTML = ''; return; }
+    $('itemEditList').innerHTML = cat.items.map((item,i)=>`
+      <div class="card" style="cursor:default;padding:8px 10px;margin-bottom:5px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" class="item-rename-input" data-idx="${i}" value="${escapeHtml(item)}"
+            style="flex:1;min-width:0;background:transparent;border:1px solid var(--border);border-radius:6px;
+            color:var(--text-primary);padding:6px 8px;font-size:13px;font-family:inherit;">
+          <button class="mini-icon-btn del" data-act="item-delete" data-idx="${i}" title="削除">🗑</button>
+        </div>
+      </div>`).join('');
+  }
+
+  $('catEditToggleBtn').addEventListener('click', ()=>{
+    const panel = $('catEditPanel');
+    const willOpen = (panel.style.display === 'none' || !panel.style.display);
+    panel.style.display = willOpen ? 'block' : 'none';
+    if(willOpen){ renderCatEditList(); renderItemEditList(); }
+  });
+
+  $('catEditList').addEventListener('change', async (e)=>{
+    const inp = e.target.closest('.cat-rename-input');
+    if(!inp) return;
+    const idx = parseInt(inp.dataset.idx, 10);
+    const newName = inp.value.trim();
+    if(!newName){ inp.value = categories[idx].name; return; }
+    const oldName = categories[idx].name;
+    categories[idx].name = newName;
+    if(activeCat === oldName) activeCat = newName;
+    if(convoActiveCat === oldName) convoActiveCat = newName;
+    await saveCategories();
+    renderCategories(); renderItems();
+    renderConvoCategories(); renderConvoItems();
+    renderItemEditList();
+  });
+  $('catEditList').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-act="cat-delete"]');
+    if(!btn) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    const removedName = categories[idx].name;
+    categories.splice(idx, 1);
+    if(activeCat === removedName) activeCat = null;
+    if(convoActiveCat === removedName) convoActiveCat = null;
+    await saveCategories();
+    renderCategories(); renderItems();
+    renderConvoCategories(); renderConvoItems();
+    renderCatEditList(); renderItemEditList();
+  });
+  $('catAddBtn').addEventListener('click', async ()=>{
+    const name = $('catNewNameInput').value.trim();
+    if(!name) return;
+    categories.push({ name, items: [] });
+    $('catNewNameInput').value = '';
+    await saveCategories();
+    renderCategories(); renderConvoCategories();
+    renderCatEditList();
+  });
+
+  $('itemEditList').addEventListener('change', async (e)=>{
+    const inp = e.target.closest('.item-rename-input');
+    if(!inp) return;
+    const cat = categories.find(c=>c.name===activeCat);
+    if(!cat) return;
+    const idx = parseInt(inp.dataset.idx, 10);
+    const newVal = inp.value.trim();
+    if(!newVal){ inp.value = cat.items[idx]; return; }
+    cat.items[idx] = newVal;
+    await saveCategories();
+    renderItems(); renderConvoItems();
+  });
+  $('itemEditList').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-act="item-delete"]');
+    if(!btn) return;
+    const cat = categories.find(c=>c.name===activeCat);
+    if(!cat) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    cat.items.splice(idx, 1);
+    await saveCategories();
+    renderItems(); renderConvoItems();
+    renderItemEditList();
+  });
+  $('itemAddBtn').addEventListener('click', async ()=>{
+    const cat = categories.find(c=>c.name===activeCat);
+    if(!cat){
+      $('itemEditHeader').textContent = '先に大分類を選んでください';
+      return;
+    }
+    const val = $('itemNewNameInput').value.trim();
+    if(!val) return;
+    cat.items.push(val);
+    $('itemNewNameInput').value = '';
+    await saveCategories();
+    renderItems(); renderConvoItems();
+    renderItemEditList();
+  });
+
+  // ---------- generation ----------
+  function setGenBusy(busy, msg){
+    document.querySelectorAll('.btn-count').forEach(b=>b.disabled = busy);
+    $('genStatus').textContent = msg || '';
+    $('genStatus').classList.remove('err');
+  }
+  function setGenErr(msg){
+    $('genStatus').textContent = msg;
+    $('genStatus').classList.add('err');
+    document.querySelectorAll('.btn-count').forEach(b=>b.disabled = false);
+  }
+
+  // If a JSON array response got cut off (e.g. hit max_tokens), a strict JSON.parse
+  // fails entirely even though most items are intact. Fall back to extracting whatever
+  // complete top-level objects we can, so a truncation loses only the last item, not all.
+  function parseJsonArraySalvage(rawText, arrayKey){
+    try{
+      const parsed = JSON.parse(rawText);
+      if(parsed[arrayKey] && Array.isArray(parsed[arrayKey])) return parsed[arrayKey];
+    }catch(e){ /* fall through to salvage */ }
+    const items = [];
+    const re = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
+    let m;
+    while((m = re.exec(rawText))){
+      try{ items.push(JSON.parse(m[0])); }catch(e){ /* skip broken fragment */ }
+    }
+    if(!items.length) throw new Error('JSON解析に失敗しました: ' + rawText.slice(0,120));
+    return items;
+  }
+
+  async function callClaude(situation, count, excludeEn){
+    const excludeText = excludeEn && excludeEn.length
+      ? `\n\n既に生成済みで重複させたくないフレーズ:\n${excludeEn.map(e=>'- '+e).join('\n')}\nこれらとは異なる、類似シチュエーションの新しいフレーズを${count}個生成してください。`
+      : '';
+    const system = `あなたは、日本の半導体製造装置メーカー(ローツェ株式会社)でUS/欧州向けセールスを担当する日本人エンジニアのための、実務直結のビジネス英語フレーズ生成アシスタントです。
+学習者はTOEIC700点程度だが会話経験がほぼなく、価格交渉・納期調整・技術説明(wafer handling systemなど半導体製造装置関連)を含む海外顧客との商談や、出張・日常生活のシーンでも使える、たどたどしくても要点が伝わる実践的フレーズを求めています。
+必ず有効なJSONのみを出力してください。マークダウンのコードフェンスや前置き、説明文は一切不要です。
+出力形式(厳守): {"phrases":[{"en":"英語フレーズ","jp":"日本語訳","note":"使い方や注意点を日本語で1文程度"}]} を${count}個の配列で。`;
+    const userMsg = `シチュエーション: ${situation}${excludeText}\n\nこのシチュエーションで実際に使える実践的なビジネス英語フレーズを${count}個、上記JSON形式で生成してください。`;
+
+    const data = await callAnthropic({
+      model: "claude-sonnet-4-6",
+      max_tokens: Math.min(4000, 400 + count*260),
+      system: system,
+      messages: [{ role: "user", content: userMsg }]
+    });
+    const textBlock = (data.content||[]).find(b=>b.type==='text');
+    if(!textBlock) throw new Error('応答にテキストがありません');
+    let clean = textBlock.text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const phrases = parseJsonArraySalvage(clean, 'phrases');
+    if(!phrases.length) throw new Error('想定外の応答形式です');
+    return phrases;
+  }
+
+  function renderGenResults(list, situation, count){
+    $('genResults').innerHTML = `<div class="today-hdr"><span>生成結果</span><span>${list.length}件・自動保存済み</span></div>` +
+      list.map(p=>cardHTML(p, phrases.indexOf(p)+1, {deletable:true, registerable:true})).join('') +
+      `<div class="btn-row"><button class="btn btn-ghost" id="moreBtn">もっと生成 (類似シチュエーションで+${count})</button></div>`;
+    const mb = $('moreBtn');
+    if(mb) mb.addEventListener('click', ()=>generate(situation, count, true));
+  }
+
+  async function generate(situation, count, isMore){
+    situation = (situation||'').trim();
+    if(!situation){ setGenErr('シチュエーションを入力してください'); return; }
+    setGenBusy(true, isMore ? '類似フレーズを生成中…' : 'フレーズを生成中…');
+    try{
+      const excludeList = isMore && situation === lastGenSituation ? lastGenEn : [];
+      const newPhrases = await callClaude(situation, count, excludeList);
+      const now = Date.now();
+      const added = newPhrases.slice(0,count).map((np,i)=>({
+        id: 'p_' + now + '_' + i + '_' + Math.random().toString(36).slice(2,7),
+        en: np.en, jp: np.jp, note: np.note || '',
+        situation: situation,
+        createdAt: now, lastReviewed: null, reviewCount: 0, status: 'new', registered: false
+      }));
+      phrases = phrases.concat(added);
+      await savePhrases();
+      lastGenSituation = situation;
+      lastGenCount = count;
+      lastGenEn = (isMore ? lastGenEn.concat(added.map(a=>a.en)) : added.map(a=>a.en));
+      currentGenResults = { list: added, situation: situation, count: count };
+      renderGenResults(added, situation, count);
+      renderAll();
+      setGenBusy(false, `✓ ${added.length}件のフレーズを保存しました`);
+    }catch(err){
+      setGenErr('生成に失敗しました: ' + err.message);
+    }
+  }
+
+  $('countRow').addEventListener('click', (e)=>{
+    const b = e.target.closest('.btn-count');
+    if(!b) return;
+    generate($('situationInput').value, parseInt(b.dataset.count,10), false);
+  });
+
+  // ---------- manual phrase add / edit ----------
+  function resetManualPhraseForm(){
+    $('manualPhraseEnInput').value = '';
+    $('manualPhraseJpInput').value = '';
+    $('manualPhraseNoteInput').value = '';
+    $('manualPhraseStatus').textContent = '';
+    $('manualPhraseStatus').classList.remove('err');
+    $('manualPhraseSaveBtn').textContent = '保存';
+    editingPhraseId = null;
+  }
+  $('manualPhraseToggleBtn').addEventListener('click', ()=>{
+    const f = $('manualPhraseForm');
+    const willOpen = (f.style.display === 'none' || !f.style.display);
+    if(willOpen) resetManualPhraseForm();
+    f.style.display = willOpen ? 'block' : 'none';
+  });
+  $('manualPhraseCancelBtn').addEventListener('click', ()=>{
+    resetManualPhraseForm();
+    $('manualPhraseForm').style.display = 'none';
+  });
+  $('manualPhraseSaveBtn').addEventListener('click', async ()=>{
+    const en = $('manualPhraseEnInput').value.trim();
+    const jp = $('manualPhraseJpInput').value.trim();
+    const note = $('manualPhraseNoteInput').value.trim();
+    if(!en){
+      $('manualPhraseStatus').textContent = '英語フレーズは必須です';
+      $('manualPhraseStatus').classList.add('err');
+      return;
+    }
+    if(editingPhraseId){
+      const p = phrases.find(x=>x.id===editingPhraseId);
+      if(p){ p.en = en; p.jp = jp; p.note = note; }
+    }else{
+      phrases.unshift({
+        id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        en, jp, note, situation: '手動追加',
+        createdAt: Date.now(), lastReviewed: null, reviewCount: 0, status: 'new', registered: false
+      });
+    }
+    await savePhrases();
+    resetManualPhraseForm();
+    $('manualPhraseForm').style.display = 'none';
+    renderAll();
+  });
+
+  // ---------- practice ----------
+  let practiceCount = 5;
+  let practiceQueue = [];
+  let practiceIndex = 0;
+
+  function pickRandomRegistered(n){
+    const pool = phrases.filter(p=>p.registered);
+    const shuffled = pool.slice().sort(()=>Math.random()-0.5);
+    return shuffled.slice(0, Math.min(n, shuffled.length));
+  }
+
+  async function generatePracticeQuestions(selected){
+    const system = `あなたは、日本の半導体製造装置メーカー(ローツェ株式会社)でUS/欧州向けセールスを担当する日本人エンジニア向けの英語スピーキング練習コーチです。
+与えられた各英語フレーズについて、そのフレーズを使って答えるのが自然になるような、実践的な状況設定つきの英語の質問または指示文を1つ作成してください。質問は音声で読み上げられ、学習者がその場で声に出して英語で答える練習に使います。
+必ず有効なJSONのみを出力してください。マークダウンのコードフェンスや前置きは不要です。
+出力形式(厳守): {"items":[{"id":"入力と同じid","question":"英語の質問文"}]}`;
+    const payload = selected.map(p=>({ id: p.id, en: p.en, jp: p.jp, situation: p.situation || '' }));
+    const userMsg = `以下のフレーズそれぞれについて、練習用の質問を1つずつ作成してください:\n${JSON.stringify(payload)}`;
+    const data = await callAnthropic({
+      model: "claude-sonnet-4-6",
+      max_tokens: Math.min(4000, 400 + selected.length*220),
+      system: system,
+      messages: [{ role: "user", content: userMsg }]
+    });
+    const textBlock = (data.content||[]).find(b=>b.type==='text');
+    if(!textBlock) throw new Error('応答にテキストがありません');
+    let clean = textBlock.text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const items = parseJsonArraySalvage(clean, 'items');
+    if(!items.length) throw new Error('想定外の応答形式です');
+    return items;
+  }
+
+  function setPracticeBusy(busy, msg){
+    document.querySelectorAll('#practiceCountRow .btn-count').forEach(b=>b.disabled = busy);
+    $('practiceStartBtn').disabled = busy;
+    $('practiceStatus').textContent = msg || '';
+    $('practiceStatus').classList.remove('err');
+  }
+  function setPracticeErr(msg){
+    $('practiceStatus').textContent = msg;
+    $('practiceStatus').classList.add('err');
+    document.querySelectorAll('#practiceCountRow .btn-count').forEach(b=>b.disabled = false);
+    $('practiceStartBtn').disabled = false;
+  }
+
+  async function startPractice(count){
+    const selected = pickRandomRegistered(count);
+    if(!selected.length){
+      $('practiceEmpty').style.display = 'block';
+      $('practiceSession').style.display = 'none';
+      $('practiceComplete').style.display = 'none';
+      return;
+    }
+    $('practiceEmpty').style.display = 'none';
+    $('practiceComplete').style.display = 'none';
+    setPracticeBusy(true, '質問を生成中…');
+    try{
+      const items = await generatePracticeQuestions(selected);
+      practiceQueue = selected.map(p=>{
+        const match = items.find(it=>it.id===p.id);
+        return { phrase: p, question: match ? match.question : `Please use this phrase in a sentence: "${p.en}"` };
+      });
+      practiceIndex = 0;
+      setPracticeBusy(false, '');
+      $('practiceSession').style.display = 'block';
+      showPracticeQuestion();
+    }catch(err){
+      setPracticeErr('生成に失敗しました: ' + err.message);
+    }
+  }
+
+  function showPracticeQuestion(){
+    const item = practiceQueue[practiceIndex];
+    if(!item) return;
+    $('practiceProgress').textContent = `${practiceIndex+1}/${practiceQueue.length}`;
+    $('practiceQuestionText').textContent = item.question;
+    $('practiceAnswerBox').style.display = 'none';
+    speak(item.question);
+  }
+
+  function advancePractice(){
+    practiceIndex++;
+    if(practiceIndex >= practiceQueue.length){
+      $('practiceSession').style.display = 'none';
+      $('practiceComplete').style.display = 'block';
+      renderAll();
+      return;
+    }
+    showPracticeQuestion();
+  }
+
+  $('practiceCountRow').addEventListener('click', (e)=>{
+    const b = e.target.closest('.btn-count');
+    if(!b) return;
+    document.querySelectorAll('#practiceCountRow .btn-count').forEach(x=>x.classList.remove('selected'));
+    b.classList.add('selected');
+    practiceCount = parseInt(b.dataset.count, 10);
+  });
+  $('practiceStartBtn').addEventListener('click', ()=> startPractice(practiceCount));
+  $('practiceReplayBtn').addEventListener('click', ()=>{
+    const item = practiceQueue[practiceIndex];
+    if(item) speak(item.question);
+  });
+  $('practiceRevealBtn').addEventListener('click', ()=>{
+    const item = practiceQueue[practiceIndex];
+    if(!item) return;
+    $('practiceAnswerEn').textContent = item.phrase.en;
+    $('practiceAnswerJp').textContent = item.phrase.jp || '';
+    $('practiceAnswerNote').textContent = item.phrase.note || '';
+    $('practiceAnswerBox').style.display = 'block';
+  });
+  $('practiceGoodBtn').addEventListener('click', async ()=>{
+    const item = practiceQueue[practiceIndex];
+    if(item){
+      const p = item.phrase;
+      p.reviewCount = (p.reviewCount||0) + 1;
+      p.lastReviewed = Date.now();
+      p.status = p.reviewCount >= 3 ? 'mastered' : 'reviewing';
+      await savePhrases();
+    }
+    advancePractice();
+  });
+  $('practiceBadBtn').addEventListener('click', async ()=>{
+    const item = practiceQueue[practiceIndex];
+    if(item){
+      const p = item.phrase;
+      p.reviewCount = 0;
+      p.status = 'reviewing';
+      p.lastReviewed = Date.now();
+      await savePhrases();
+    }
+    advancePractice();
+  });
+  $('practiceNextBtn').addEventListener('click', ()=> advancePractice());
+
+  // ---------- practice mode toggle ----------
+  document.querySelectorAll('.practice-mode-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      document.querySelectorAll('.practice-mode-chip').forEach(c=>c.classList.remove('selected'));
+      chip.classList.add('selected');
+      const mode = chip.dataset.mode;
+      $('practiceQuizMode').style.display = mode === 'quiz' ? 'block' : 'none';
+      $('practiceConvoMode').style.display = mode === 'conversation' ? 'block' : 'none';
+    });
+  });
+
+  // ---------- conversation practice ----------
+  let convoActiveCat = null;
+  function renderConvoCategories(){
+    $('convoCatChips').innerHTML = categories.map(c=>
+      `<span class="chip cat-chip${c.name===convoActiveCat?' active':''}" data-cat="${escapeHtml(c.name)}">${c.name}</span>`
+    ).join('');
+  }
+  function renderConvoItems(){
+    const cat = categories.find(c=>c.name===convoActiveCat);
+    $('convoItemChips').innerHTML = cat
+      ? cat.items.map(i=>`<span class="chip item-chip" data-item="${escapeHtml(i)}">${i}</span>`).join('')
+      : '';
+  }
+  $('convoCatChips').addEventListener('click', (e)=>{
+    const c = e.target.closest('.cat-chip');
+    if(!c) return;
+    convoActiveCat = (convoActiveCat === c.dataset.cat) ? null : c.dataset.cat;
+    renderConvoCategories(); renderConvoItems();
+  });
+  $('convoItemChips').addEventListener('click', (e)=>{
+    const it = e.target.closest('.item-chip');
+    if(!it) return;
+    $('convoSituationInput').value = it.dataset.item;
+  });
+  renderConvoCategories(); renderConvoItems();
+
+  let convoApiHistory = [];
+  let convoDisplayHistory = [];
+  let convoSystemPrompt = '';
+  let currentConvoLogId = null;
+
+  function convoLogPreviewText(log){
+    return (log.transcript||[]).map(h=>`${h.role==='assistant'?'AI':'YOU'}: ${h.text}`).join('\n');
+  }
+
+  let feedbackLoadingId = null;
+
+  function convoLogCardHTML(log, idx){
+    const transcriptText = convoLogPreviewText(log);
+    const hasUserTurn = (log.transcript||[]).some(h=>h.role==='user');
+    const hasNewTurnsSinceFeedback = (log.transcript||[]).length > (log.feedbackForTurnCount||0);
+    const showFeedbackBtn = hasUserTurn && (!log.feedback || hasNewTurnsSinceFeedback);
+    const isLoadingFeedback = feedbackLoadingId === log.id;
+    return `<div class="card">
+      <div class="card-top">
+        <span class="card-serial">#${String(idx).padStart(3,'0')} — ${todayStr(log.createdAt)}</span>
+        <span class="card-top-right">
+          <button class="mini-icon-btn" data-act="convolog-resume" data-id="${log.id}" title="続きから会話する">↺</button>
+          ${showFeedbackBtn ? `<button class="mini-icon-btn" data-act="convolog-feedback" data-id="${log.id}" title="${log.feedback?'フィードバックを更新':'フィードバックをもらう'}" ${isLoadingFeedback?'disabled':''}>${isLoadingFeedback?'…':'📝'}</button>` : ''}
+          <button class="mini-icon-btn del" data-act="convolog-delete" data-id="${log.id}" title="削除">🗑</button>
+        </span>
+      </div>
+      <div class="script-title">${escapeHtml(log.situation)}</div>
+      <div class="jp-hint">タップして会話ログを表示</div>
+      <div class="script-body">${escapeHtml(transcriptText)}</div>
+      ${log.feedback ? `<div class="script-memo">📝 フィードバック: ${escapeHtml(log.feedback)}</div>` : ''}
+    </div>`;
+  }
+
+  function renderConvoLogs(){
+    $('convoLogsCount').textContent = convoLogs.length + '件';
+    if(!convoLogs.length){
+      $('convoLogsList').innerHTML = `<div class="empty">まだ会話ログがありません。「練習」タブの「会話練習」で話すと、ここに記録されます。</div>`;
+      return;
+    }
+    const sorted = convoLogs.slice().sort((a,b)=>b.updatedAt-a.updatedAt);
+    $('convoLogsList').innerHTML = sorted.map((log,i)=>convoLogCardHTML(log, i+1)).join('');
+  }
+
+  async function syncCurrentConvoLog(){
+    if(!currentConvoLogId) return;
+    const log = convoLogs.find(l=>l.id===currentConvoLogId);
+    if(!log) return;
+    log.transcript = convoDisplayHistory.slice();
+    log.updatedAt = Date.now();
+    await saveConvoLogs();
+    renderConvoLogs();
+  }
+
+  function buildConvoSystemPrompt(situation){
+    return `あなたは、日本の半導体製造装置メーカー(ローツェ株式会社)のセールス担当者と英語で会話する相手役(顧客・同僚など、シチュエーションに応じた役)を演じるロールプレイパートナーです。
+シチュエーション: ${situation}
+以下のルールを厳密に守ってください:
+- 必ず英語のみで応答してください。日本語は一切使わないでください。
+- 1〜3文程度の、実際の会話・商談のテンポに近い自然な長さで応答してください。
+- 学習者(日本人セールス担当、英会話は初〜中級レベル)が話しやすいよう、極端に難しい語彙や早口すぎる展開は避けてください。
+- 学習者の発言を受けて、相槌・追加質問・自然な反応を交えながら会話を継続してください。
+- 出力は発言内容のみとし、ト書き・括弧書きの説明・ナレーションは含めないでください。`;
+  }
+
+  async function convoCallClaude(history){
+    const data = await callAnthropic({
+      model: "claude-sonnet-4-6",
+      max_tokens: 300,
+      system: convoSystemPrompt,
+      messages: history
+    });
+    const textBlock = (data.content||[]).find(b=>b.type==='text');
+    if(!textBlock) throw new Error('応答にテキストがありません');
+    return textBlock.text.trim();
+  }
+
+  let convoListenMode = 'manual';
+  let convoSessionActive = false;
+  let convoAutoPaused = false;
+
+  document.querySelectorAll('.convo-listen-mode').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      document.querySelectorAll('.convo-listen-mode').forEach(c=>c.classList.remove('selected'));
+      chip.classList.add('selected');
+      convoListenMode = chip.dataset.listen;
+      $('convoMicManualWrap').style.display = convoListenMode === 'manual' ? 'block' : 'none';
+      $('convoMicAutoWrap').style.display = convoListenMode === 'auto' ? 'block' : 'none';
+      if(convoListenMode === 'manual' && recognizing && recognition){
+        recognition.stop();
+      }
+    });
+  });
+
+  $('convoAutoPauseBtn').addEventListener('click', ()=>{
+    convoAutoPaused = !convoAutoPaused;
+    $('convoAutoPauseBtn').textContent = convoAutoPaused ? '▶ 再開' : '⏸ 一時停止';
+    $('convoAutoStatus').textContent = convoAutoPaused ? '⏸ 一時停止中' : '🎤 自動で聞いています…';
+    if(convoAutoPaused && recognizing && recognition){
+      recognition.stop();
+    }else if(!convoAutoPaused && convoSessionActive && !recognizing){
+      startAutoListening();
+    }
+  });
+
+  function setConvoBusy(busy, msg){
+    $('convoStartBtn').disabled = busy;
+    $('convoMicBtn').disabled = busy;
+    $('convoSendTypedBtn').disabled = busy;
+    $('convoEndBtn').disabled = busy;
+    $('convoStatus').textContent = msg || '';
+    $('convoStatus').classList.remove('err');
+  }
+  function setConvoErr(msg){
+    $('convoStatus').textContent = msg;
+    $('convoStatus').classList.add('err');
+    $('convoStartBtn').disabled = false;
+    $('convoMicBtn').disabled = false;
+    $('convoSendTypedBtn').disabled = false;
+    $('convoEndBtn').disabled = false;
+  }
+
+  function renderConvoTranscript(){
+    const box = $('convoTranscript');
+    box.innerHTML = convoDisplayHistory.map(h=>{
+      const isAi = h.role === 'assistant';
+      return `<div class="convo-bubble ${isAi?'ai':'user'}">
+        <div class="convo-role">${isAi?'AI':'YOU'}</div>
+        <div class="convo-text">${escapeHtml(h.text)}</div>
+      </div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function afterAiSpeaks(){
+    if(convoListenMode === 'auto' && convoSessionActive && !convoAutoPaused){
+      startAutoListening();
+    }
+  }
+
+  $('convoStartBtn').addEventListener('click', async ()=>{
+    const situation = $('convoSituationInput').value.trim();
+    if(!situation){ setConvoErr('シチュエーションを入力してください'); return; }
+    convoSystemPrompt = buildConvoSystemPrompt(situation);
+    convoApiHistory = [{ role:'user', content:'(Please start our conversation naturally based on the situation. Speak first, in 1-2 sentences, in English only.)' }];
+    convoDisplayHistory = [];
+    convoAutoPaused = false;
+    $('convoAutoPauseBtn').textContent = '⏸ 一時停止';
+    $('convoFeedback').style.display = 'none';
+    $('convoTranscript').innerHTML = '';
+    $('convoMicManualWrap').style.display = convoListenMode === 'manual' ? 'block' : 'none';
+    $('convoMicAutoWrap').style.display = convoListenMode === 'auto' ? 'block' : 'none';
+    setConvoBusy(true, '会話を準備中…');
+    try{
+      const reply = await convoCallClaude(convoApiHistory);
+      convoApiHistory.push({ role:'assistant', content: reply });
+      convoDisplayHistory.push({ role:'assistant', text: reply });
+      renderConvoTranscript();
+      $('convoSession').style.display = 'block';
+      convoSessionActive = true;
+      currentConvoLogId = 'cl_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+      convoLogs.unshift({
+        id: currentConvoLogId, situation, createdAt: Date.now(), updatedAt: Date.now(),
+        transcript: convoDisplayHistory.slice(), feedback: null, completed: false
+      });
+      await saveConvoLogs();
+      renderConvoLogs();
+      setConvoBusy(false, '');
+      speak(reply, afterAiSpeaks);
+    }catch(err){
+      setConvoErr('開始に失敗しました: ' + err.message);
+    }
+  });
+
+  async function submitConvoTurn(text){
+    text = (text||'').trim();
+    if(!text) return;
+    convoApiHistory.push({ role:'user', content: text });
+    convoDisplayHistory.push({ role:'user', text });
+    renderConvoTranscript();
+    await syncCurrentConvoLog();
+    setConvoBusy(true, '応答を生成中…');
+    try{
+      const reply = await convoCallClaude(convoApiHistory);
+      convoApiHistory.push({ role:'assistant', content: reply });
+      convoDisplayHistory.push({ role:'assistant', text: reply });
+      renderConvoTranscript();
+      await syncCurrentConvoLog();
+      setConvoBusy(false, '');
+      speak(reply, afterAiSpeaks);
+    }catch(err){
+      setConvoErr('応答の生成に失敗しました: ' + err.message);
+    }
+  }
+
+  $('convoSendTypedBtn').addEventListener('click', ()=>{
+    const text = $('convoTypeInput').value.trim();
+    if(!text) return;
+    $('convoTypeInput').value = '';
+    submitConvoTurn(text);
+  });
+
+  async function generateConvoFeedback(transcript){
+    const transcriptText = transcript.map(h=>`${h.role==='assistant'?'相手':'あなた'}: ${h.text}`).join('\n');
+    const system = `あなたは日本人ビジネスパーソン向けの英会話コーチです。英語でのロールプレイ会話のやり取りを読み、日本語で建設的なフィードバックを行ってください。
+良かった点、改善できる点、より自然・効果的な言い回しの具体例(「こう言うとより良いです」という形で1〜2個)を含め、300字程度で簡潔にまとめてください。学習者の発言("あなた"の発言)にのみ着目してください。`;
+    const data = await callAnthropic({
+      model: "claude-sonnet-4-6",
+      max_tokens: 800,
+      system: system,
+      messages: [{ role:'user', content: `会話のやり取り:\n${transcriptText}\n\nこの会話における、あなたの発言へのフィードバックをお願いします。` }]
+    });
+    const textBlock = (data.content||[]).find(b=>b.type==='text');
+    if(!textBlock) throw new Error('応答にテキストがありません');
+    return textBlock.text.trim();
+  }
+
+  $('convoEndBtn').addEventListener('click', async ()=>{
+    if(!convoDisplayHistory.some(h=>h.role==='user')){
+      setConvoErr('会話がまだ始まっていません(1回はあなたが発言してから終了してください)');
+      return;
+    }
+    convoSessionActive = false;
+    if(recognizing && recognition){ recognition.stop(); }
+    setConvoBusy(true, 'フィードバックを作成中…');
+    try{
+      const feedback = await generateConvoFeedback(convoDisplayHistory);
+      $('convoFeedbackCard').innerHTML = `<div class="practice-ans-note" style="font-style:normal;color:var(--text-primary);white-space:pre-wrap;">${escapeHtml(feedback)}</div>`;
+      $('convoSession').style.display = 'none';
+      $('convoFeedback').style.display = 'block';
+      if(currentConvoLogId){
+        const log = convoLogs.find(l=>l.id===currentConvoLogId);
+        if(log){
+          log.feedback = feedback;
+          log.feedbackForTurnCount = convoDisplayHistory.length;
+          log.completed = true;
+          log.updatedAt = Date.now();
+          await saveConvoLogs();
+          renderConvoLogs();
+        }
+      }
+      setConvoBusy(false, '');
+    }catch(err){
+      setConvoErr('フィードバックの生成に失敗しました: ' + err.message);
+    }
+  });
+
+  $('convoRestartBtn').addEventListener('click', ()=>{
+    convoSessionActive = false;
+    currentConvoLogId = null;
+    $('convoFeedback').style.display = 'none';
+    $('convoSession').style.display = 'none';
+    convoApiHistory = []; convoDisplayHistory = [];
+    $('convoTranscript').innerHTML = '';
+  });
+
+  // ---------- speech recognition (mic input for conversation) ----------
+  let recognition = null;
+  let recognizing = false;
+  let recognizedFinal = '';
+  (function setupRecognition(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){
+      $('convoMicBtn').textContent = '🎤 音声入力非対応(下の入力欄をご利用ください)';
+      $('convoMicBtn').disabled = true;
+      $('convoAutoStatus').textContent = '🎤 音声入力非対応(下の入力欄をご利用ください)';
+      $('convoAutoPauseBtn').disabled = true;
+      return;
+    }
+    recognition = new SR();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.onresult = (e)=>{
+      let final = '', interim = '';
+      for(let i=e.resultIndex; i<e.results.length; i++){
+        if(e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      recognizedFinal += final;
+      $('convoLiveText').textContent = (recognizedFinal + interim).trim();
+    };
+    recognition.onerror = (e)=>{
+      recognizing = false;
+      $('convoMicBtn').textContent = '🎤 話す';
+      setConvoErr('音声認識エラー: ' + e.error + '(下のテキスト欄もご利用いただけます)');
+      if(e.error === 'not-allowed' && convoListenMode === 'auto'){
+        convoAutoPaused = true;
+        $('convoAutoPauseBtn').textContent = '▶ 再開';
+        $('convoAutoStatus').textContent = '⏸ マイクが使えないため一時停止しました';
+      }
+    };
+    recognition.onend = ()=>{
+      recognizing = false;
+      $('convoMicBtn').textContent = '🎤 話す';
+      const text = recognizedFinal.trim();
+      recognizedFinal = '';
+      $('convoLiveText').textContent = '';
+      if(text) submitConvoTurn(text);
+    };
+  })();
+
+  function startAutoListening(){
+    if(!recognition || recognizing) return;
+    recognition.continuous = false;
+    recognizedFinal = '';
+    $('convoLiveText').textContent = '';
+    $('convoAutoStatus').textContent = '🎤 自動で聞いています…';
+    try{
+      recognition.start();
+      recognizing = true;
+    }catch(err){
+      setConvoErr('マイクを開始できませんでした: ' + err.message);
+    }
+  }
+
+  $('convoMicBtn').addEventListener('click', ()=>{
+    if(!recognition) return;
+    if(!recognizing){
+      recognition.continuous = true;
+      recognizedFinal = '';
+      $('convoLiveText').textContent = '';
+      try{
+        recognition.start();
+        recognizing = true;
+        $('convoMicBtn').textContent = '⏹ 話し終わったら押す';
+      }catch(err){
+        setConvoErr('マイクを開始できませんでした: ' + err.message);
+      }
+    }else{
+      recognition.stop();
+    }
+  });
+
+  // ---------- script form ----------
+  let editingScriptId = null;
+  function resetScriptForm(){
+    $('scriptTitleInput').value = '';
+    $('scriptBodyInput').value = '';
+    $('scriptMemoInput').value = '';
+    $('scriptStatus').textContent = '';
+    $('scriptStatus').classList.remove('err');
+    $('scriptSaveBtn').textContent = '保存';
+    editingScriptId = null;
+  }
+  $('scriptAddToggleBtn').addEventListener('click', ()=>{
+    const f = $('scriptForm');
+    const willOpen = (f.style.display === 'none' || !f.style.display);
+    if(willOpen) resetScriptForm();
+    f.style.display = willOpen ? 'block' : 'none';
+  });
+  $('scriptReorderToggleBtn').addEventListener('click', ()=>{
+    scriptsReorderMode = !scriptsReorderMode;
+    $('scriptReorderToggleBtn').textContent = scriptsReorderMode ? '完了' : '並べ替え';
+    if(scriptsReorderMode){ $('scriptForm').style.display = 'none'; }
+    renderScripts();
+  });
+  $('scriptCancelBtn').addEventListener('click', ()=>{
+    resetScriptForm();
+    $('scriptForm').style.display = 'none';
+  });
+  $('scriptSaveBtn').addEventListener('click', async ()=>{
+    const title = $('scriptTitleInput').value.trim();
+    const body = $('scriptBodyInput').value.trim();
+    const memo = $('scriptMemoInput').value.trim();
+    if(!title){
+      $('scriptStatus').textContent = 'タイトルは必須です';
+      $('scriptStatus').classList.add('err');
+      return;
+    }
+    if(editingScriptId){
+      const s = scripts.find(x=>x.id===editingScriptId);
+      if(s){ s.title = title; s.body = body; s.memo = memo; }
+    }else{
+      scripts.unshift({
+        id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        title, body, memo, createdAt: Date.now()
+      });
+    }
+    await saveScripts();
+    resetScriptForm();
+    $('scriptForm').style.display = 'none';
+    renderScripts();
+  });
+
+  // ---------- link form ----------
+  let editingLinkId = null;
+  function resetLinkForm(){
+    $('linkTitleInput').value = '';
+    $('linkUrlInput').value = '';
+    $('linkGoalInput').value = '';
+    $('linkStatus').textContent = '';
+    $('linkStatus').classList.remove('err');
+    $('linkSaveBtn').textContent = '保存';
+    editingLinkId = null;
+  }
+  $('linkAddToggleBtn').addEventListener('click', ()=>{
+    const f = $('linkForm');
+    const willOpen = (f.style.display === 'none' || !f.style.display);
+    if(willOpen) resetLinkForm();
+    f.style.display = willOpen ? 'block' : 'none';
+  });
+  $('linkReorderToggleBtn').addEventListener('click', ()=>{
+    linksReorderMode = !linksReorderMode;
+    $('linkReorderToggleBtn').textContent = linksReorderMode ? '完了' : '並べ替え';
+    if(linksReorderMode){ $('linkForm').style.display = 'none'; }
+    renderLinks();
+  });
+  $('linkCancelBtn').addEventListener('click', ()=>{
+    resetLinkForm();
+    $('linkForm').style.display = 'none';
+  });
+  $('linkSaveBtn').addEventListener('click', async ()=>{
+    const title = $('linkTitleInput').value.trim();
+    const url = normalizeUrl($('linkUrlInput').value);
+    const goalRaw = $('linkGoalInput').value.trim();
+    const goalMinutes = goalRaw ? Math.max(0, parseInt(goalRaw, 10) || 0) : null;
+    if(!title){
+      $('linkStatus').textContent = 'タイトルは必須です';
+      $('linkStatus').classList.add('err');
+      return;
+    }
+    if(editingLinkId){
+      const l = links.find(x=>x.id===editingLinkId);
+      if(l){ l.title = title; l.url = url; l.goalMinutes = goalMinutes; }
+    }else{
+      links.unshift({
+        id: 'l_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        title, url, goalMinutes, createdAt: Date.now()
+      });
+    }
+    await saveLinks();
+    resetLinkForm();
+    $('linkForm').style.display = 'none';
+    renderLinks();
+  });
+
+  // ---------- player controls wiring ----------
+  $('audioFileInput').addEventListener('change', async (e)=>{
+    const files = Array.from(e.target.files || []);
+    for(const f of files){
+      try{
+        const arrayBuffer = await f.arrayBuffer();
+        const ctx = getAudioCtx();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+        tracks.push({ name: f.name, buffer: audioBuffer });
+        renderPlaylist();
+        if(currentTrackIndex === -1){ loadTrack(tracks.length-1, false); }
+      }catch(err){
+        setPlayerStatus(`${f.name} の読み込み/デコードに失敗しました: ${err.message}`, true);
+      }
+    }
+    e.target.value = '';
+  });
+  $('btnPlayPause').addEventListener('click', ()=>{ if(isPlaying) pauseAudio(); else playAudio(); });
+  $('btnBack5').addEventListener('click', ()=>{ seekTo(getElapsed() - 5); });
+  $('btnFwd5').addEventListener('click', ()=>{ seekTo(getElapsed() + 5); });
+  $('btnPrevTrack').addEventListener('click', ()=>{
+    if(currentTrackIndex > 0){ const wasPlaying = isPlaying; loadTrack(currentTrackIndex-1, wasPlaying); }
+  });
+  $('btnNextTrack').addEventListener('click', ()=>{
+    if(currentTrackIndex < tracks.length-1){ const wasPlaying = isPlaying; loadTrack(currentTrackIndex+1, wasPlaying); }
+  });
+  $('speedPresetRow').addEventListener('click', (e)=>{
+    const b = e.target.closest('.btn-count');
+    if(!b) return;
+    setSpeed(parseFloat(b.dataset.speed));
+  });
+  $('speedDown').addEventListener('click', ()=> setSpeed(currentSpeed - 0.01));
+  $('speedUp').addEventListener('click', ()=> setSpeed(currentSpeed + 0.01));
+  $('speedSlider').addEventListener('input', (e)=> setSpeed(parseFloat(e.target.value)));
+  $('seekBar').addEventListener('input', (e)=>{ seekTo(parseFloat(e.target.value)); });
+  $('setPointA').addEventListener('click', ()=>{ pointA = getElapsed(); updateABStatus(); });
+  $('setPointB').addEventListener('click', ()=>{ pointB = getElapsed(); updateABStatus(); });
+  $('clearAB').addEventListener('click', ()=>{
+    pointA = null; pointB = null;
+    sectionRepeatOn = false;
+    $('toggleSectionRepeat').classList.remove('active');
+    updateABStatus();
+  });
+  $('toggleSectionRepeat').addEventListener('click', ()=>{
+    sectionRepeatOn = !sectionRepeatOn;
+    if(sectionRepeatOn){
+      singleRepeatOn = false;
+      $('toggleSingleRepeat').classList.remove('active');
+    }
+    $('toggleSectionRepeat').classList.toggle('active', sectionRepeatOn);
+  });
+  $('toggleSingleRepeat').addEventListener('click', ()=>{
+    singleRepeatOn = !singleRepeatOn;
+    if(singleRepeatOn){
+      sectionRepeatOn = false;
+      $('toggleSectionRepeat').classList.remove('active');
+    }
+    $('toggleSingleRepeat').classList.toggle('active', singleRepeatOn);
+  });
+  setSpeed(1.0);
+
+  let notesSaveTimer = null;
+  $('playerNotesInput').addEventListener('input', ()=>{
+    clearTimeout(notesSaveTimer);
+    notesSaveTimer = setTimeout(async ()=>{
+      try{ await window.storage.set('playerNotes', $('playerNotesInput').value, false); }catch(e){}
+    }, 600);
+  });
+
+  // ---------- undo toast button ----------
+  $('undoToastBtn').addEventListener('click', async ()=>{
+    if(!lastDeleted) return;
+    clearTimeout(undoTimer);
+    const { type, item, index } = lastDeleted;
+    lastDeleted = null;
+    $('undoToast').style.display = 'none';
+    if(type === 'phrase'){
+      phrases.splice(Math.min(index, phrases.length), 0, item);
+      await savePhrases(); renderAll();
+    }else if(type === 'script'){
+      scripts.splice(Math.min(index, scripts.length), 0, item);
+      await saveScripts(); renderScripts();
+    }else if(type === 'link'){
+      links.splice(Math.min(index, links.length), 0, item);
+      await saveLinks(); renderLinks();
+    }else if(type === 'convolog'){
+      convoLogs.splice(Math.min(index, convoLogs.length), 0, item);
+      await saveConvoLogs(); renderConvoLogs();
+    }
+  });
+
+  // ---------- settings wiring ----------
+  $('darkModeToggle').addEventListener('change', async (e)=>{
+    appSettings.theme = e.target.checked ? 'dark' : 'light';
+    applyTheme();
+    await saveSettings();
+  });
+  $('voiceSelect').addEventListener('change', async (e)=>{
+    appSettings.voiceName = e.target.value;
+    await saveSettings();
+  });
+  $('voiceRateInput').addEventListener('input', (e)=>{
+    appSettings.voiceRate = parseFloat(e.target.value);
+    $('voiceRateVal').textContent = appSettings.voiceRate.toFixed(2);
+  });
+  $('voiceRateInput').addEventListener('change', async ()=>{ await saveSettings(); });
+  $('voicePitchInput').addEventListener('input', (e)=>{
+    appSettings.voicePitch = parseFloat(e.target.value);
+    $('voicePitchVal').textContent = appSettings.voicePitch.toFixed(2);
+  });
+  $('voicePitchInput').addEventListener('change', async ()=>{ await saveSettings(); });
+  $('voiceTestBtn').addEventListener('click', ()=>{
+    speak('Hello, this is a test of the selected voice. Nice to meet you.');
+  });
+  if(!IS_CLAUDE_ENV){
+    $('apiKeySection').style.display = 'block';
+  }
+  $('apiKeyInput').addEventListener('change', async (e)=>{
+    appSettings.apiKey = e.target.value.trim();
+    await saveSettings();
+  });
+
+  // ---------- data export / import (for syncing between devices) ----------
+  const SYNCED_KEYS = ['phrases','scripts','links','studyTime','convoLogs','categories','playerNotes','settings'];
+  $('exportDataBtn').addEventListener('click', async ()=>{
+    const bundle = {};
+    for(const k of SYNCED_KEYS){
+      try{
+        const r = await window.storage.get(k, false);
+        bundle[k] = r ? r.value : null;
+      }catch(e){ bundle[k] = null; }
+    }
+    // never export the API key
+    if(bundle.settings){
+      try{
+        const s = JSON.parse(bundle.settings);
+        delete s.apiKey;
+        bundle.settings = JSON.stringify(s);
+      }catch(e){}
+    }
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = todayStr();
+    a.href = url;
+    a.download = `english-learning-app-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    $('dataSyncStatus').textContent = 'エクスポートしました。ファイルをもう一方の端末に送ってインポートしてください。';
+  });
+  $('importDataBtn').addEventListener('click', ()=> $('importFileInput').click());
+  $('importFileInput').addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    try{
+      const text = await file.text();
+      const bundle = JSON.parse(text);
+      for(const k of SYNCED_KEYS){
+        if(k in bundle && bundle[k] !== null && bundle[k] !== undefined){
+          await window.storage.set(k, bundle[k], false);
+        }
+      }
+      $('dataSyncStatus').textContent = 'インポートが完了しました。ページを再読み込みします…';
+      setTimeout(()=> location.reload(), 1200);
+    }catch(err){
+      $('dataSyncStatus').textContent = 'インポートに失敗しました: ' + err.message;
+    }
+    e.target.value = '';
+  });
+
+  // ---------- keyboard shortcuts (Cmd/Ctrl+Enter to submit) ----------
+  function bindCmdEnter(el, action){
+    if(!el) return;
+    el.addEventListener('keydown', (e)=>{
+      if((e.metaKey || e.ctrlKey) && e.key === 'Enter'){
+        e.preventDefault();
+        action();
+      }
+    });
+  }
+  bindCmdEnter($('situationInput'), ()=>{
+    const btn = document.querySelector('#countRow .btn-count[data-count="5"]');
+    if(btn && !btn.disabled) btn.click();
+  });
+  bindCmdEnter($('convoSituationInput'), ()=>{
+    if(!$('convoStartBtn').disabled) $('convoStartBtn').click();
+  });
+  bindCmdEnter($('convoTypeInput'), ()=>{
+    if(!$('convoSendTypedBtn').disabled) $('convoSendTypedBtn').click();
+  });
+  [$('scriptTitleInput'), $('scriptBodyInput'), $('scriptMemoInput')].forEach(el=>{
+    bindCmdEnter(el, ()=>{ if(!$('scriptSaveBtn').disabled) $('scriptSaveBtn').click(); });
+  });
+  [$('linkTitleInput'), $('linkUrlInput'), $('linkGoalInput')].forEach(el=>{
+    bindCmdEnter(el, ()=>{ if(!$('linkSaveBtn').disabled) $('linkSaveBtn').click(); });
+  });
+
+  // ---------- init ----------
+  (async function init(){
+    await loadSettings();
+    applyTheme();
+    applyVoiceSettingsToUI();
+    await loadCategories();
+    renderCategories(); renderItems();
+    renderConvoCategories(); renderConvoItems();
+    await loadPhrases();
+    await loadScripts();
+    await loadLinks();
+    await loadStudyTime();
+    await loadConvoLogs();
+    renderAll();
+    renderScripts();
+    renderLinks();
+    renderStudyTimeStats();
+    renderConvoLogs();
+    try{
+      const r = await window.storage.get('playerNotes', false);
+      if(r && r.value) $('playerNotesInput').value = r.value;
+    }catch(e){}
+  })();
+})();
+</script>
+</body>
+</html>
