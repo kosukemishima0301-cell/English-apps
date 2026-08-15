@@ -930,9 +930,25 @@
   let audioCtx = null;
   function getAudioCtx(){
     if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-    if(audioCtx.state === 'suspended'){ audioCtx.resume().catch(()=>{}); }
     return audioCtx;
   }
+  // iOS Safari only allows an AudioContext to actually produce sound if resume() is
+  // called (and settles) inside a direct user-gesture handler. We resume eagerly on
+  // the very first tap anywhere in the player page, and again right before every
+  // playback start, awaiting it so playback is never scheduled while still suspended.
+  async function unlockAudioCtx(){
+    const ctx = getAudioCtx();
+    if(ctx.state === 'suspended'){
+      try{ await ctx.resume(); }catch(e){ /* ignore; we retry on next gesture */ }
+    }
+  }
+  (function setupIosUnlock(){
+    const panel = document.getElementById('page-player');
+    if(!panel) return;
+    const unlock = ()=>{ unlockAudioCtx(); };
+    panel.addEventListener('touchend', unlock, { passive:true });
+    panel.addEventListener('click', unlock);
+  })();
 
   let tracks = []; // { name, buffer: AudioBuffer|null }
   let currentTrackIndex = -1;
@@ -994,11 +1010,16 @@
     if(singleRepeatOn){ startPlaybackFrom(0); return; }
     if(currentTrackIndex < tracks.length - 1){ loadTrack(currentTrackIndex+1, true); }
   }
-  function startPlaybackFrom(offsetSec){
+  async function startPlaybackFrom(offsetSec){
     const t = tracks[currentTrackIndex];
     if(!t || !t.buffer) return;
     stopSourceNode();
+    await unlockAudioCtx();
     const ctx = getAudioCtx();
+    if(ctx.state !== 'running'){
+      setPlayerStatus('再生を開始できませんでした。もう一度▶を押してみてください(端末の制限で1回目は解除だけになることがあります)。', true);
+      return;
+    }
     const dur = t.buffer.duration;
     const clamped = Math.max(0, Math.min(offsetSec, Math.max(0, dur - 0.02)));
     const src = ctx.createBufferSource();
@@ -1052,13 +1073,12 @@
     $('btnPlayPause').textContent = '▶';
     pointA = null; pointB = null; updateABStatus();
     renderPlaylist();
-    if(keepPlaying){ startPlaybackFrom(0); }
+    if(keepPlaying){ startPlaybackFrom(0).catch(err=>{ setPlayerStatus('再生を開始できませんでした: ' + err.message, true); }); }
   }
 
   function playAudio(){
     if(currentTrackIndex < 0) return;
-    try{ startPlaybackFrom(getElapsed()); }
-    catch(err){ setPlayerStatus('再生を開始できませんでした: ' + err.message, true); }
+    startPlaybackFrom(getElapsed()).catch(err=>{ setPlayerStatus('再生を開始できませんでした: ' + err.message, true); });
   }
   function pauseAudio(){
     if(!isPlaying) return;
