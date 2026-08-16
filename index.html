@@ -503,6 +503,17 @@
 
       <!-- SCRIPTS -->
       <div class="page" id="page-scripts">
+        <div class="situation-box" id="scriptPlayerBox" style="display:none;">
+          <div class="script-title" id="scriptPlayerTitle" style="margin:0 0 8px;"></div>
+          <input type="range" id="scriptSeekBar" min="0" max="100" value="0" step="0.1" style="width:100%;">
+          <div class="status-line" id="scriptTimeDisplay" style="margin:4px 0 10px;">00:00 / 00:00(目安)</div>
+          <div class="count-row">
+            <button class="btn-count" id="scriptRestartBtn">⏮ 頭出し</button>
+            <button class="btn-count" id="scriptPlayPauseBtn">⏸ 一時停止</button>
+            <button class="btn-count" id="scriptStopBtn">■ 停止</button>
+          </div>
+        </div>
+
         <div class="btn-row add-row">
           <button class="btn btn-primary" id="scriptAddToggleBtn">＋ 台本を追加</button>
           <button class="btn btn-ghost" id="scriptReorderToggleBtn">並べ替え</button>
@@ -1192,6 +1203,100 @@
     hideTtsToast();
   }
 
+  // ---------- script read-aloud player (progress bar + seek for long text) ----------
+  // The Web Speech API has no real seek or duration; we estimate an elapsed/total time
+  // from characters-per-second at the current rate, and "seek" by cancelling and
+  // restarting a fresh utterance from the target character offset. onboundary (where
+  // supported) periodically recalibrates the estimate against real speech progress.
+  let scriptReading = null; // { fullText, title, rate, segmentStartCharIndex, segmentStartTime, paused }
+  let scriptTickTimer = null;
+
+  function estimateCharsPerSecond(rate){
+    return 14 * (rate || 1); // ~150 wpm at rate 1.0, in English
+  }
+  function buildUtterance(text){
+    const u = new SpeechSynthesisUtterance(text);
+    let chosen = null;
+    if(appSettings.voiceName) chosen = voices.find(v=>v.name === appSettings.voiceName);
+    if(!chosen) chosen = voices.find(v=>v.lang && v.lang.startsWith('en-US')) || voices.find(v=>v.lang && v.lang.startsWith('en'));
+    if(chosen) u.voice = chosen;
+    u.lang = 'en-US';
+    u.rate = appSettings.voiceRate || 0.92;
+    u.pitch = appSettings.voicePitch || 1.0;
+    return u;
+  }
+
+  function speakScript(text, title){
+    if(!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    scriptReading = { fullText: text, title: title, rate: appSettings.voiceRate || 0.92, paused: false };
+    $('scriptPlayerTitle').textContent = title;
+    $('scriptSeekBar').max = text.length;
+    $('scriptSeekBar').value = 0;
+    $('scriptPlayerBox').style.display = 'block';
+    $('scriptPlayerBox').scrollIntoView({behavior:'smooth', block:'start'});
+    startScriptUtteranceFrom(0);
+  }
+
+  function startScriptUtteranceFrom(charOffset){
+    if(!scriptReading) return;
+    window.speechSynthesis.cancel();
+    charOffset = Math.max(0, Math.min(charOffset, scriptReading.fullText.length));
+    const u = buildUtterance(scriptReading.fullText.slice(charOffset));
+    scriptReading.segmentStartCharIndex = charOffset;
+    scriptReading.segmentStartTime = performance.now();
+    scriptReading.paused = false;
+    u.onboundary = (e)=>{
+      if(!scriptReading || typeof e.charIndex !== 'number') return;
+      scriptReading.segmentStartCharIndex = charOffset + e.charIndex;
+      scriptReading.segmentStartTime = performance.now();
+    };
+    u.onend = ()=>{
+      if(!scriptReading) return;
+      scriptReading.segmentStartCharIndex = scriptReading.fullText.length;
+      updateScriptProgressUI();
+      finishScriptReading();
+    };
+    u.onerror = ()=>{ if(scriptReading) finishScriptReading(); };
+    window.speechSynthesis.speak(u);
+    $('scriptPlayPauseBtn').textContent = '⏸ 一時停止';
+    showTtsToast();
+    updateMediaSessionForTts(scriptReading.title);
+    startScriptTicking();
+  }
+
+  function startScriptTicking(){
+    stopScriptTicking();
+    scriptTickTimer = setInterval(updateScriptProgressUI, 300);
+  }
+  function stopScriptTicking(){
+    if(scriptTickTimer){ clearInterval(scriptTickTimer); scriptTickTimer = null; }
+  }
+  function scriptCharIndexNow(){
+    if(!scriptReading) return 0;
+    if(scriptReading.paused) return scriptReading.segmentStartCharIndex;
+    const cps = estimateCharsPerSecond(scriptReading.rate);
+    const elapsedSec = (performance.now() - scriptReading.segmentStartTime) / 1000;
+    return Math.min(scriptReading.fullText.length, scriptReading.segmentStartCharIndex + elapsedSec * cps);
+  }
+  function updateScriptProgressUI(){
+    if(!scriptReading) return;
+    const cps = estimateCharsPerSecond(scriptReading.rate);
+    const charIndex = scriptCharIndexNow();
+    const totalSec = scriptReading.fullText.length / cps;
+    const elapsedSec = charIndex / cps;
+    $('scriptSeekBar').value = charIndex;
+    $('scriptTimeDisplay').textContent = `${fmtTime(elapsedSec)} / ${fmtTime(totalSec)}(目安)`;
+  }
+  function finishScriptReading(){
+    stopScriptTicking();
+    window.speechSynthesis.cancel();
+    scriptReading = null;
+    $('scriptPlayerBox').style.display = 'none';
+    hideTtsToast();
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  }
+
   // ---------- Media Session (lock screen / earbud hardware controls) ----------
   function updateMediaSessionForTts(text){
     if(!('mediaSession' in navigator)) return;
@@ -1553,7 +1658,7 @@
 
     if(act === 'speak-script'){
       const s = scripts.find(x=>x.id===id);
-      if(s) speak(s.body);
+      if(s) speakScript(s.body, s.title);
       return;
     }
     if(act === 'track-play'){
@@ -2778,6 +2883,37 @@
   });
 
   $('ttsStopBtn').addEventListener('click', ()=> stopSpeaking());
+
+  $('scriptPlayPauseBtn').addEventListener('click', ()=>{
+    if(!scriptReading) return;
+    if(scriptReading.paused){
+      try{
+        window.speechSynthesis.resume();
+        scriptReading.paused = false;
+        scriptReading.segmentStartTime = performance.now();
+        $('scriptPlayPauseBtn').textContent = '⏸ 一時停止';
+        startScriptTicking();
+      }catch(e){
+        startScriptUtteranceFrom(scriptReading.segmentStartCharIndex);
+      }
+    }else{
+      scriptReading.segmentStartCharIndex = scriptCharIndexNow();
+      scriptReading.paused = true;
+      stopScriptTicking();
+      try{ window.speechSynthesis.pause(); }
+      catch(e){ window.speechSynthesis.cancel(); }
+      $('scriptPlayPauseBtn').textContent = '▶ 再開';
+    }
+  });
+  $('scriptRestartBtn').addEventListener('click', ()=>{
+    if(!scriptReading) return;
+    startScriptUtteranceFrom(0);
+  });
+  $('scriptStopBtn').addEventListener('click', ()=> finishScriptReading());
+  $('scriptSeekBar').addEventListener('change', (e)=>{
+    if(!scriptReading) return;
+    startScriptUtteranceFrom(Math.round(parseFloat(e.target.value)));
+  });
 
   // ---------- settings wiring ----------
   $('darkModeToggle').addEventListener('change', async (e)=>{
