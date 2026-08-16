@@ -925,12 +925,16 @@
 
   function todayStr(d){ const dt = d?new Date(d):new Date(); return dt.toISOString().slice(0,10); }
 
-  // ---------- audio player (Web Audio API decode-to-buffer playback) ----------
+  // ---------- audio player (Web Audio API + SoundTouchJS pitch-preserving time-stretch) ----------
   // We deliberately avoid <audio src="blob:...">/<audio src="data:...">: sandboxed
   // preview environments can block those via CSP media-src, which showed up as a
   // generic "no supported source" error even for perfectly valid mp3 files. Decoding
-  // the file's raw bytes with the Web Audio API and playing it through an
-  // AudioBufferSourceNode sidesteps that entirely — there is no <audio> src to block.
+  // the file's raw bytes with the Web Audio API and playing it back sidesteps that
+  // entirely — there is no <audio> src to block.
+  //
+  // Plain AudioBufferSourceNode.playbackRate changes speed by resampling, which also
+  // shifts pitch (chipmunk/slow-motion-voice effect). SoundTouchJS's PitchShifter
+  // time-stretches instead, so speed changes leave the voice's pitch unchanged.
   let audioCtx = null;
   function getAudioCtx(){
     if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -954,6 +958,21 @@
     panel.addEventListener('click', unlock);
   })();
 
+  let PitchShifterClass = null;
+  let pitchShifterLoadFailed = false;
+  async function loadPitchShifter(){
+    if(PitchShifterClass) return PitchShifterClass;
+    if(pitchShifterLoadFailed) return null;
+    try{
+      const mod = await import('https://esm.sh/soundtouchjs@0.1.30');
+      PitchShifterClass = mod.PitchShifter;
+      return PitchShifterClass;
+    }catch(e){
+      pitchShifterLoadFailed = true;
+      return null;
+    }
+  }
+
   let tracks = []; // { name, buffer: AudioBuffer|null }
   let currentTrackIndex = -1;
   let pointA = null, pointB = null;
@@ -961,11 +980,9 @@
   let singleRepeatOn = false;
   let currentSpeed = 1.0;
 
-  let sourceNode = null;
+  let shifter = null;         // current PitchShifter instance ("pseudo-node")
   let isPlaying = false;
-  let playStartCtxTime = 0;
-  let playStartOffset = 0;
-  let tickTimer = null;
+  let lastKnownElapsed = 0;   // seconds, kept up to date via the 'play' event / on pause
 
   function fmtTime(s){
     if(!isFinite(s) || s < 0) return '00:00';
@@ -978,37 +995,33 @@
     return t && t.buffer ? t.buffer.duration : 0;
   }
   function getElapsed(){
-    if(!isPlaying) return playStartOffset;
-    const ctx = getAudioCtx();
-    return playStartOffset + (ctx.currentTime - playStartCtxTime) * currentSpeed;
+    return lastKnownElapsed;
   }
-  function stopSourceNode(){
-    if(sourceNode){
-      sourceNode.onended = null;
-      try{ sourceNode.stop(); }catch(e){}
-      try{ sourceNode.disconnect(); }catch(e){}
-      sourceNode = null;
+  function destroyShifter(){
+    if(shifter){
+      try{ shifter.off(); }catch(e){}
+      try{ shifter.disconnect(); }catch(e){}
+      shifter = null;
     }
   }
-  function startTicking(){
-    stopTicking();
-    tickTimer = setInterval(tick, 200);
-  }
-  function stopTicking(){
-    if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
-  }
-  function tick(){
+  function tick(detail){
     const dur = currentDuration();
-    const elapsed = getElapsed();
+    const elapsed = typeof detail?.timePlayed === 'number' ? detail.timePlayed : lastKnownElapsed;
+    lastKnownElapsed = elapsed;
     $('seekBar').max = dur || 0;
     $('seekBar').value = Math.min(elapsed, dur);
     $('timeDisplay').textContent = `${fmtTime(elapsed)} / ${fmtTime(dur)}`;
     if(sectionRepeatOn && pointB !== null && elapsed >= pointB){
       startPlaybackFrom(pointA || 0);
+      return;
+    }
+    if(dur > 0 && elapsed >= dur - 0.05){
+      handleTrackEnded();
     }
   }
   function handleTrackEnded(){
-    stopTicking();
+    destroyShifter();
+    isPlaying = false;
     $('btnPlayPause').textContent = '▶';
     if(sectionRepeatOn && pointB !== null){ startPlaybackFrom(pointA || 0); return; }
     if(singleRepeatOn){ startPlaybackFrom(0); return; }
@@ -1017,33 +1030,31 @@
   async function startPlaybackFrom(offsetSec){
     const t = tracks[currentTrackIndex];
     if(!t || !t.buffer) return;
-    stopSourceNode();
+    destroyShifter();
     await unlockAudioCtx();
     const ctx = getAudioCtx();
     if(ctx.state !== 'running'){
       setPlayerStatus('再生を開始できませんでした。もう一度▶を押してみてください(端末の制限で1回目は解除だけになることがあります)。', true);
       return;
     }
+    const PS = await loadPitchShifter();
+    if(!PS){
+      setPlayerStatus('再生エンジンの読み込みに失敗しました。通信環境を確認してもう一度お試しください。', true);
+      return;
+    }
     const dur = t.buffer.duration;
     const clamped = Math.max(0, Math.min(offsetSec, Math.max(0, dur - 0.02)));
-    const src = ctx.createBufferSource();
-    src.buffer = t.buffer;
-    src.playbackRate.value = currentSpeed;
-    src.connect(ctx.destination);
-    src.start(0, clamped);
-    playStartCtxTime = ctx.currentTime;
-    playStartOffset = clamped;
-    sourceNode = src;
+    const s = new PS(ctx, t.buffer, 4096);
+    s.tempo = currentSpeed;
+    s.pitch = 1;
+    if(dur > 0) s.percentagePlayed = clamped / dur;
+    lastKnownElapsed = clamped;
+    s.on('play', (detail)=>{ if(shifter === s) tick(detail); });
+    s.connect(ctx.destination);
+    shifter = s;
     isPlaying = true;
-    src.onended = ()=>{
-      if(sourceNode !== src) return;
-      isPlaying = false;
-      sourceNode = null;
-      handleTrackEnded();
-    };
     $('btnPlayPause').textContent = '⏸';
     setPlayerStatus('');
-    startTicking();
     if('mediaSession' in navigator){
       navigator.mediaSession.metadata = new MediaMetadata({
         title: t.name,
@@ -1070,11 +1081,10 @@
 
   function loadTrack(idx, keepPlaying){
     if(idx < 0 || idx >= tracks.length) return;
-    stopTicking();
-    stopSourceNode();
+    destroyShifter();
     isPlaying = false;
     currentTrackIndex = idx;
-    playStartOffset = 0;
+    lastKnownElapsed = 0;
     setPlayerStatus('');
     $('nowPlayingTitle').textContent = tracks[idx].name;
     $('nowPlayingTitle').style.display = 'block';
@@ -1093,20 +1103,16 @@
   }
   function pauseAudio(){
     if(!isPlaying) return;
-    playStartOffset = getElapsed();
-    stopSourceNode();
+    destroyShifter();
     isPlaying = false;
     $('btnPlayPause').textContent = '▶';
-    stopTicking();
     if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   }
 
   function setSpeed(v){
     v = Math.min(2.0, Math.max(0.5, Math.round(v*100)/100));
-    const elapsed = getElapsed();
     currentSpeed = v;
-    if(sourceNode){ sourceNode.playbackRate.value = v; }
-    if(isPlaying){ playStartCtxTime = getAudioCtx().currentTime; playStartOffset = elapsed; }
+    if(shifter){ shifter.tempo = v; }
     document.querySelectorAll('#speedPresetRow .btn-count').forEach(b=>{
       b.classList.toggle('speed-active', Math.abs(parseFloat(b.dataset.speed) - v) < 0.005);
     });
@@ -1123,7 +1129,7 @@
     offsetSec = Math.max(0, Math.min(offsetSec, dur));
     if(isPlaying){ startPlaybackFrom(offsetSec); }
     else{
-      playStartOffset = offsetSec;
+      lastKnownElapsed = offsetSec;
       $('seekBar').value = offsetSec;
       $('timeDisplay').textContent = `${fmtTime(offsetSec)} / ${fmtTime(dur)}`;
     }
@@ -1565,7 +1571,7 @@
       const idx = parseInt(btn.dataset.idx, 10);
       if(idx < 0 || idx >= tracks.length) return;
       if(idx === currentTrackIndex){
-        pauseAudio(); stopTicking(); currentTrackIndex = -1;
+        pauseAudio(); destroyShifter(); currentTrackIndex = -1;
         $('nowPlayingTitle').textContent = ''; $('nowPlayingTitle').style.display = 'none';
       }else if(idx < currentTrackIndex){
         currentTrackIndex--;
