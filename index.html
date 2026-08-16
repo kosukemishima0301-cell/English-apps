@@ -283,6 +283,10 @@
     <button id="undoToastBtn">元に戻す</button>
   </div>
   <div class="undo-toast" id="errorBanner" style="display:none;border-color:var(--accent-red);"></div>
+  <div class="undo-toast" id="ttsToast" style="display:none;">
+    <span>🔊 読み上げ中…</span>
+    <button id="ttsStopBtn">⏹ 停止</button>
+  </div>
 
   <div class="hdr">
     <p class="hdr-sub">English Learning App</p>
@@ -1040,6 +1044,13 @@
     $('btnPlayPause').textContent = '⏸';
     setPlayerStatus('');
     startTicking();
+    if('mediaSession' in navigator){
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: t.name,
+        artist: 'English Learning App — プレイヤー'
+      });
+      navigator.mediaSession.playbackState = 'playing';
+    }
   }
 
   function renderPlaylist(){
@@ -1087,6 +1098,7 @@
     isPlaying = false;
     $('btnPlayPause').textContent = '▶';
     stopTicking();
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   }
 
   function setSpeed(v){
@@ -1152,8 +1164,61 @@
     u.lang = 'en-US';
     u.rate = appSettings.voiceRate || 0.92;
     u.pitch = appSettings.voicePitch || 1.0;
-    if(onEnd){ u.onend = onEnd; u.onerror = onEnd; }
+    const cleanup = ()=>{
+      hideTtsToast();
+      if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      if(onEnd) onEnd();
+    };
+    u.onstart = ()=>{ showTtsToast(); updateMediaSessionForTts(text); };
+    u.onend = cleanup;
+    u.onerror = cleanup;
     window.speechSynthesis.speak(u);
+  }
+
+  // ---------- TTS stop control ----------
+  let ttsHideTimer = null;
+  function showTtsToast(){
+    clearTimeout(ttsHideTimer);
+    $('ttsToast').style.display = 'flex';
+  }
+  function hideTtsToast(){
+    // small delay avoids a flicker between consecutive utterances (e.g. conversation turns)
+    clearTimeout(ttsHideTimer);
+    ttsHideTimer = setTimeout(()=>{ $('ttsToast').style.display = 'none'; }, 150);
+  }
+  function stopSpeaking(){
+    if(window.speechSynthesis){ window.speechSynthesis.cancel(); }
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+    hideTtsToast();
+  }
+
+  // ---------- Media Session (lock screen / earbud hardware controls) ----------
+  function updateMediaSessionForTts(text){
+    if(!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: (text || '').slice(0, 60),
+      artist: 'English Learning App — 読み上げ'
+    });
+    navigator.mediaSession.playbackState = 'playing';
+  }
+  if('mediaSession' in navigator){
+    navigator.mediaSession.setActionHandler('pause', ()=>{
+      if(window.speechSynthesis && window.speechSynthesis.speaking){ stopSpeaking(); }
+      if(isPlaying){ pauseAudio(); }
+    });
+    navigator.mediaSession.setActionHandler('stop', ()=>{
+      stopSpeaking();
+      if(isPlaying){ pauseAudio(); }
+    });
+    navigator.mediaSession.setActionHandler('play', ()=>{
+      if(currentTrackIndex >= 0 && !isPlaying){ playAudio(); }
+    });
+    try{
+      navigator.mediaSession.setActionHandler('seekbackward', ()=>{ if(currentTrackIndex >= 0) seekTo(getElapsed() - 5); });
+      navigator.mediaSession.setActionHandler('seekforward', ()=>{ if(currentTrackIndex >= 0) seekTo(getElapsed() + 5); });
+      navigator.mediaSession.setActionHandler('previoustrack', ()=>{ if(currentTrackIndex > 0) loadTrack(currentTrackIndex-1, true); });
+      navigator.mediaSession.setActionHandler('nexttrack', ()=>{ if(currentTrackIndex < tracks.length-1) loadTrack(currentTrackIndex+1, true); });
+    }catch(e){ /* some actions unsupported on this browser; ignore */ }
   }
 
   // ---------- rendering ----------
@@ -2711,6 +2776,8 @@
       await saveConvoLogs(); renderConvoLogs();
     }
   });
+
+  $('ttsStopBtn').addEventListener('click', ()=> stopSpeaking());
 
   // ---------- settings wiring ----------
   $('darkModeToggle').addEventListener('change', async (e)=>{
