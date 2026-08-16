@@ -503,14 +503,14 @@
 
       <!-- SCRIPTS -->
       <div class="page" id="page-scripts">
-        <div class="situation-box" id="scriptPlayerBox" style="display:none;">
-          <div class="script-title" id="scriptPlayerTitle" style="margin:0 0 8px;"></div>
-          <input type="range" id="scriptSeekBar" min="0" max="100" value="0" step="0.1" style="width:100%;">
+        <div class="situation-box" id="scriptPlayerBox">
+          <div class="script-title" id="scriptPlayerTitle" style="margin:0 0 8px;color:var(--text-dim);">台本を選んで🔊を押すと読み上げが始まります</div>
+          <input type="range" id="scriptSeekBar" min="0" max="100" value="0" step="0.1" style="width:100%;" disabled>
           <div class="status-line" id="scriptTimeDisplay" style="margin:4px 0 10px;">00:00 / 00:00(目安)</div>
           <div class="count-row">
-            <button class="btn-count" id="scriptRestartBtn">⏮ 頭出し</button>
-            <button class="btn-count" id="scriptPlayPauseBtn">⏸ 一時停止</button>
-            <button class="btn-count" id="scriptStopBtn">■ 停止</button>
+            <button class="btn-count" id="scriptRestartBtn" disabled>⏮ 頭出し</button>
+            <button class="btn-count" id="scriptPlayPauseBtn" disabled>⏸ 一時停止</button>
+            <button class="btn-count" id="scriptStopBtn" disabled>■ 停止</button>
           </div>
         </div>
 
@@ -1227,13 +1227,22 @@
   }
 
   function speakScript(text, title){
-    if(!window.speechSynthesis) return;
+    $('scriptSeekBar').disabled = false;
+    $('scriptRestartBtn').disabled = false;
+    $('scriptPlayPauseBtn').disabled = false;
+    $('scriptStopBtn').disabled = false;
+    if(!window.speechSynthesis){
+      $('scriptPlayerTitle').textContent = 'このブラウザは読み上げに対応していません';
+      $('scriptPlayerTitle').style.color = 'var(--accent-red)';
+      return;
+    }
     window.speechSynthesis.cancel();
     scriptReading = { fullText: text, title: title, rate: appSettings.voiceRate || 0.92, paused: false, utterance: null };
     $('scriptPlayerTitle').textContent = title;
+    $('scriptPlayerTitle').style.color = '';
     $('scriptSeekBar').max = text.length;
     $('scriptSeekBar').value = 0;
-    $('scriptPlayerBox').style.display = 'block';
+    $('scriptTimeDisplay').textContent = '準備中…';
     $('scriptPlayerBox').scrollIntoView({behavior:'smooth', block:'start'});
     startScriptUtteranceFrom(0);
   }
@@ -1269,6 +1278,15 @@
     updateMediaSessionForTts(scriptReading.title);
     updateScriptProgressUI();
     startScriptTicking();
+    // If, after a beat, the engine reports nothing queued or speaking, the browser
+    // silently refused to start (often a permission/gesture restriction) — surface
+    // that in the visible status line instead of leaving a frozen, unexplained bar.
+    setTimeout(()=>{
+      if(scriptReading && scriptReading.utterance === u &&
+         !window.speechSynthesis.speaking && !window.speechSynthesis.pending){
+        $('scriptTimeDisplay').textContent = '読み上げを開始できませんでした(端末側の制限の可能性があります)';
+      }
+    }, 900);
   }
 
   function startScriptTicking(){
@@ -1306,7 +1324,15 @@
     stopScriptTicking();
     window.speechSynthesis.cancel();
     scriptReading = null;
-    $('scriptPlayerBox').style.display = 'none';
+    $('scriptPlayerTitle').textContent = '台本を選んで🔊を押すと読み上げが始まります';
+    $('scriptPlayerTitle').style.color = 'var(--text-dim)';
+    $('scriptSeekBar').value = 0;
+    $('scriptSeekBar').disabled = true;
+    $('scriptTimeDisplay').textContent = '00:00 / 00:00(目安)';
+    $('scriptRestartBtn').disabled = true;
+    $('scriptPlayPauseBtn').disabled = true;
+    $('scriptPlayPauseBtn').textContent = '⏸ 一時停止';
+    $('scriptStopBtn').disabled = true;
     hideTtsToast();
     if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   }
