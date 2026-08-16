@@ -1229,7 +1229,7 @@
   function speakScript(text, title){
     if(!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    scriptReading = { fullText: text, title: title, rate: appSettings.voiceRate || 0.92, paused: false };
+    scriptReading = { fullText: text, title: title, rate: appSettings.voiceRate || 0.92, paused: false, utterance: null };
     $('scriptPlayerTitle').textContent = title;
     $('scriptSeekBar').max = text.length;
     $('scriptSeekBar').value = 0;
@@ -1246,38 +1246,52 @@
     scriptReading.segmentStartCharIndex = charOffset;
     scriptReading.segmentStartTime = performance.now();
     scriptReading.paused = false;
+    // Chrome (and some other engines) can silently garbage-collect a
+    // SpeechSynthesisUtterance that isn't referenced anywhere outside the speak()
+    // call, which stops events firing and can cut speech short. Keeping it on
+    // scriptReading keeps it alive for the whole read.
+    scriptReading.utterance = u;
     u.onboundary = (e)=>{
-      if(!scriptReading || typeof e.charIndex !== 'number') return;
+      if(!scriptReading || scriptReading.utterance !== u || typeof e.charIndex !== 'number') return;
       scriptReading.segmentStartCharIndex = charOffset + e.charIndex;
       scriptReading.segmentStartTime = performance.now();
     };
     u.onend = ()=>{
-      if(!scriptReading) return;
+      if(!scriptReading || scriptReading.utterance !== u) return;
       scriptReading.segmentStartCharIndex = scriptReading.fullText.length;
       updateScriptProgressUI();
       finishScriptReading();
     };
-    u.onerror = ()=>{ if(scriptReading) finishScriptReading(); };
+    u.onerror = ()=>{ if(scriptReading && scriptReading.utterance === u) finishScriptReading(); };
     window.speechSynthesis.speak(u);
     $('scriptPlayPauseBtn').textContent = '⏸ 一時停止';
     showTtsToast();
     updateMediaSessionForTts(scriptReading.title);
+    updateScriptProgressUI();
     startScriptTicking();
   }
 
   function startScriptTicking(){
     stopScriptTicking();
-    scriptTickTimer = setInterval(updateScriptProgressUI, 300);
+    // requestAnimationFrame keeps updating smoothly while the tab is visible and
+    // sidesteps any setInterval throttling quirks.
+    const loop = ()=>{
+      if(!scriptReading) return;
+      updateScriptProgressUI();
+      scriptTickTimer = requestAnimationFrame(loop);
+    };
+    scriptTickTimer = requestAnimationFrame(loop);
   }
   function stopScriptTicking(){
-    if(scriptTickTimer){ clearInterval(scriptTickTimer); scriptTickTimer = null; }
+    if(scriptTickTimer){ cancelAnimationFrame(scriptTickTimer); scriptTickTimer = null; }
   }
   function scriptCharIndexNow(){
     if(!scriptReading) return 0;
-    if(scriptReading.paused) return scriptReading.segmentStartCharIndex;
+    if(scriptReading.paused) return scriptReading.segmentStartCharIndex || 0;
     const cps = estimateCharsPerSecond(scriptReading.rate);
     const elapsedSec = (performance.now() - scriptReading.segmentStartTime) / 1000;
-    return Math.min(scriptReading.fullText.length, scriptReading.segmentStartCharIndex + elapsedSec * cps);
+    const idx = (scriptReading.segmentStartCharIndex || 0) + elapsedSec * cps;
+    return Math.min(scriptReading.fullText.length, Math.max(0, idx));
   }
   function updateScriptProgressUI(){
     if(!scriptReading) return;
@@ -1285,7 +1299,7 @@
     const charIndex = scriptCharIndexNow();
     const totalSec = scriptReading.fullText.length / cps;
     const elapsedSec = charIndex / cps;
-    $('scriptSeekBar').value = charIndex;
+    $('scriptSeekBar').value = isFinite(charIndex) ? charIndex : 0;
     $('scriptTimeDisplay').textContent = `${fmtTime(elapsedSec)} / ${fmtTime(totalSec)}(目安)`;
   }
   function finishScriptReading(){
